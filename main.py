@@ -1,12 +1,10 @@
 import os
 import asyncio
-import re
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import Update
 from telegram.ext import (
     ApplicationBuilder,
     CommandHandler,
     MessageHandler,
-    CallbackQueryHandler,
     ContextTypes,
     filters
 )
@@ -14,15 +12,20 @@ from telegram.ext import (
 # ================== SOZLAMALAR ==================
 TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 
-REQUIRED_CHANNEL = "@moviesbyone"     # majburiy a'zolik kanali
-PRIVATE_CHANNEL_ID = -1003793414081   # yopiq kanal ID
+REQUIRED_CHANNEL = "@moviesbyone"
 
 WARNING_TEXT = (
     "⚠️ Movie will be deleted automatically in 25 minutes.\n"
     "📥 Please download or save it."
 )
 
-CODE_REGEX = re.compile(r"(kod)\s*[:\-]?\s*(\d+)", re.IGNORECASE)
+# ================== KINOLAR BAZASI ==================
+# ⚠️ BU YERGA KINOLARNI BOTGA YUBORIB OLGAN file_id NI QO‘YASAN
+MOVIES = {
+    "1": "BQACAgQAAxkBAAIBG2WhiplashFILEID",   # Whiplash (2014)
+    "2": "BQACAgQAAxkBAAIBH2Movie2FILEID",
+    "3": "BQACAgQAAxkBAAIBI2Movie3FILEID",
+}
 
 # ================== A'ZOLIK TEKSHIRISH ==================
 async def check_subscription(user_id, context):
@@ -34,15 +37,9 @@ async def check_subscription(user_id, context):
 
 # ================== A'ZOLIK XABARI ==================
 async def send_subscribe_message(update: Update):
-    keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton("🎬 Movies in English", url="https://t.me/moviesbyone")],
-        [InlineKeyboardButton("✅ Tasdiqlash", callback_data="check_sub")]
-    ])
-
     await update.message.reply_text(
         "💡 Botdan foydalanish uchun kanalga a’zo bo‘lishingiz kerak.\n\n"
-        "👉 A’zo bo‘lib, Tasdiqlash tugmasini bosing.",
-        reply_markup=keyboard
+        "👉 @moviesbyone kanaliga a’zo bo‘ling va qayta urinib ko‘ring."
     )
 
 # ================== START ==================
@@ -57,32 +54,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "📌 Kino kodini yuboring (masalan: 1).\n\n"
         "⚠️ Kino 25 daqiqadan so‘ng avtomatik o‘chiriladi."
     )
-
-# ================== CALLBACK ==================
-async def callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-
-    if query.data == "check_sub":
-        if await check_subscription(query.from_user.id, context):
-            await query.message.edit_text(
-                "✅ A’zolik tasdiqlandi!\n\n📌 Kino kodini yuboring."
-            )
-        else:
-            await query.answer("❌ Kanalga a’zo emassiz!", show_alert=True)
-
-# ================== KINO QIDIRISH (TO‘G‘RI) ==================
-async def find_movie_by_code(code, context):
-    async for msg in context.bot.get_chat_history(PRIVATE_CHANNEL_ID, limit=300):
-        text = msg.caption or msg.text
-        if not text:
-            continue
-
-        match = CODE_REGEX.search(text)
-        if match and match.group(2) == code:
-            return msg.message_id
-
-    return None
 
 # ================== 25 DAQIQADAN KEYIN O‘CHIRISH ==================
 async def delete_later(context, chat_id, message_id):
@@ -100,33 +71,26 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     code = update.message.text.strip()
 
-    if not code.isdigit():
-        await update.message.reply_text(
-            "❌ Noto‘g‘ri format.\n👉 Faqat kino kodini yuboring (masalan: 1)."
-        )
-        return
-
-    movie_message_id = await find_movie_by_code(code, context)
-
-    if not movie_message_id:
+    if code not in MOVIES:
         await update.message.reply_text(
             "❌ Bunday kod topilmadi.\n"
             "👉 Kino kodini ochiq kanaldan tekshirib ko‘ring."
         )
         return
 
-    # Forward EMAS — COPY (kanal nomi ko‘rinmaydi)
-    sent = await context.bot.copy_message(
+    # 🎬 Kinoni yuborish (FORWARD EMAS)
+    sent = await context.bot.send_video(
         chat_id=update.effective_chat.id,
-        from_chat_id=PRIVATE_CHANNEL_ID,
-        message_id=movie_message_id
+        video=MOVIES[code]
     )
 
+    # ⚠️ Ogohlantirish
     await context.bot.send_message(
         chat_id=update.effective_chat.id,
         text=WARNING_TEXT
     )
 
+    # ⏱ 25 daqiqadan keyin o‘chirish
     asyncio.create_task(
         delete_later(context, update.effective_chat.id, sent.message_id)
     )
@@ -136,7 +100,6 @@ def main():
     app = ApplicationBuilder().token(TOKEN).build()
 
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(CallbackQueryHandler(callbacks))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
     print("🎬 Movies in English bot ishga tushdi...")
