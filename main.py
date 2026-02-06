@@ -128,14 +128,11 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
+    # 🔥 VIDEO + WARNING BIRGA
     sent = await context.bot.send_video(
         chat_id=update.effective_chat.id,
-        video=MOVIES[code]
-    )
-
-    await context.bot.send_message(
-        chat_id=update.effective_chat.id,
-        text=WARNING_TEXT
+        video=MOVIES[code],
+        caption=WARNING_TEXT
     )
 
     asyncio.create_task(
