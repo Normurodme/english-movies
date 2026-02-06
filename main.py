@@ -1,4 +1,5 @@
 import os
+import json
 import asyncio
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
@@ -14,16 +15,34 @@ from telegram.ext import (
 TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 
 REQUIRED_CHANNEL = "@moviesbyone"
-ADMIN_ID = 6220077209   # ✅ ANIQ ADMIN ID
+ADMIN_ID = 6220077209
 
 WARNING_TEXT = (
     "⚠️ Movie will be deleted automatically in 25 minutes.\n"
     "📥 Please download or save it."
 )
 
-# Kino bazasi (RAM)
-MOVIES = {}
-NEXT_CODE = 1
+MOVIES_FILE = "movies.json"
+CODE_FILE = "next_code.txt"
+
+# ================== BAZANI YUKLASH ==================
+if os.path.exists(MOVIES_FILE):
+    with open(MOVIES_FILE, "r") as f:
+        MOVIES = json.load(f)
+else:
+    MOVIES = {}
+
+if os.path.exists(CODE_FILE):
+    with open(CODE_FILE, "r") as f:
+        NEXT_CODE = int(f.read())
+else:
+    NEXT_CODE = 1
+
+def save_db():
+    with open(MOVIES_FILE, "w") as f:
+        json.dump(MOVIES, f)
+    with open(CODE_FILE, "w") as f:
+        f.write(str(NEXT_CODE))
 
 # ================== A'ZOLIK ==================
 async def check_subscription(user_id, context):
@@ -71,7 +90,7 @@ async def callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             await query.answer("❌ Kanalga a’zo emassiz!", show_alert=True)
 
-# ================== /download (ADMIN) ==================
+# ================== /download ==================
 async def download(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != ADMIN_ID:
         return
@@ -80,6 +99,16 @@ async def download(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "🎬 Kino yuboring.\n\n"
         "📌 Video ostiga avtomatik kod beriladi."
+    )
+
+# ================== /delete ==================
+async def delete_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id != ADMIN_ID:
+        return
+
+    context.user_data["awaiting_delete"] = True
+    await update.message.reply_text(
+        "🗑 Qaysi kino o‘chiriladi?\n\n📌 Kino kodini yuboring."
     )
 
 # ================== 25 DAQIQA O‘CHIRISH ==================
@@ -94,18 +123,31 @@ async def delete_later(context, chat_id, message_id):
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     global NEXT_CODE
 
-    # ===== ADMIN KINO QO‘SHISH =====
+    user_id = update.effective_user.id
+    text = update.message.text.strip() if update.message.text else None
+
+    # ===== DELETE =====
+    if user_id == ADMIN_ID and context.user_data.get("awaiting_delete"):
+        if text in MOVIES:
+            del MOVIES[text]
+            save_db()
+            await update.message.reply_text(f"🗑 Kino {text} o‘chirildi.")
+        else:
+            await update.message.reply_text("❌ Bunday kod topilmadi.")
+        context.user_data["awaiting_delete"] = False
+        return
+
+    # ===== ADD MOVIE =====
     if (
-        update.effective_user.id == ADMIN_ID
+        user_id == ADMIN_ID
         and context.user_data.get("awaiting_movie")
         and (update.message.video or update.message.document)
     ):
         file = update.message.video or update.message.document
-        file_id = file.file_id
-
         code = str(NEXT_CODE)
-        MOVIES[code] = file_id
+        MOVIES[code] = file.file_id
         NEXT_CODE += 1
+        save_db()
 
         await update.message.reply_text(
             f"✅ Kino saqlandi!\n\n📌 Kod: {code}"
@@ -114,24 +156,21 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data["awaiting_movie"] = False
         return
 
-    # ===== FOYDALANUVCHI =====
-    if not await check_subscription(update.effective_user.id, context):
+    # ===== USER =====
+    if not await check_subscription(user_id, context):
         await send_subscribe_message(update)
         return
 
-    code = update.message.text.strip()
-
-    if code not in MOVIES:
+    if not text or text not in MOVIES:
         await update.message.reply_text(
             "❌ Bunday kod topilmadi.\n"
             "👉 Kino kodini ochiq kanaldan tekshirib ko‘ring."
         )
         return
 
-    # 🔥 VIDEO + WARNING BIRGA
     sent = await context.bot.send_video(
         chat_id=update.effective_chat.id,
-        video=MOVIES[code],
+        video=MOVIES[text],
         caption=WARNING_TEXT
     )
 
@@ -145,6 +184,7 @@ def main():
 
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("download", download))
+    app.add_handler(CommandHandler("delete", delete_cmd))
     app.add_handler(CallbackQueryHandler(callbacks))
     app.add_handler(MessageHandler(filters.ALL, handle_message))
 
