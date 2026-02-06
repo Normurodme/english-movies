@@ -14,15 +14,15 @@ from telegram.ext import (
 TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 
 REQUIRED_CHANNEL = "@moviesbyone"
-ADMIN_ID = 123456789  # <<< O'Z TELEGRAM IDINGNI QO'Y
+ADMIN_ID = 6220077209   # ✅ ANIQ ADMIN ID
 
 WARNING_TEXT = (
     "⚠️ Movie will be deleted automatically in 25 minutes.\n"
     "📥 Please download or save it."
 )
 
-# Kino bazasi (RAMda)
-MOVIES = {}   # {"1": file_id, "2": file_id}
+# Kino bazasi (RAM)
+MOVIES = {}
 NEXT_CODE = 1
 
 # ================== A'ZOLIK ==================
@@ -76,11 +76,11 @@ async def download(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != ADMIN_ID:
         return
 
+    context.user_data["awaiting_movie"] = True
     await update.message.reply_text(
         "🎬 Kino yuboring.\n\n"
         "📌 Video ostiga avtomatik kod beriladi."
     )
-    context.user_data["awaiting_movie"] = True
 
 # ================== 25 DAQIQA O‘CHIRISH ==================
 async def delete_later(context, chat_id, message_id):
@@ -98,9 +98,11 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if (
         update.effective_user.id == ADMIN_ID
         and context.user_data.get("awaiting_movie")
-        and update.message.video
+        and (update.message.video or update.message.document)
     ):
-        file_id = update.message.video.file_id
+        file = update.message.video or update.message.document
+        file_id = file.file_id
+
         code = str(NEXT_CODE)
         MOVIES[code] = file_id
         NEXT_CODE += 1
