@@ -17,6 +17,8 @@ TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 REQUIRED_CHANNEL = "@moviesbyone"
 ADMIN_ID = 6220077209
 
+STORAGE_CHANNEL_ID = -1001234567890  # <<< BU YERGA STORAGE KANAL ID
+
 WARNING_TEXT = (
     "⚠️ Movie will be deleted automatically in 25 minutes.\n"
     "📥 Please download or save it."
@@ -182,8 +184,17 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         and (update.message.video or update.message.document)
     ):
         file = update.message.video or update.message.document
+        file_id = file.file_id
+
+        # ===== KANALGA HAM YUBORISH =====
+        sent_channel = await context.bot.copy_message(
+            chat_id=STORAGE_CHANNEL_ID,
+            from_chat_id=update.effective_chat.id,
+            message_id=update.message.message_id
+        )
+
         code = str(NEXT_CODE)
-        MOVIES[code] = file.file_id
+        MOVIES[code] = sent_channel.message_id
         NEXT_CODE += 1
         save_db()
 
@@ -206,9 +217,16 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
-    sent = await context.bot.send_video(
+    # ===== USERGA VIDEO (FORWARD EMAS) =====
+    sent = await context.bot.copy_message(
         chat_id=update.effective_chat.id,
-        video=MOVIES[text],
+        from_chat_id=STORAGE_CHANNEL_ID,
+        message_id=MOVIES[text]
+    )
+
+    await context.bot.edit_message_caption(
+        chat_id=update.effective_chat.id,
+        message_id=sent.message_id,
         caption=WARNING_TEXT
     )
 
