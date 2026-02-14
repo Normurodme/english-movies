@@ -24,6 +24,7 @@ WARNING_TEXT = (
 
 MOVIES_FILE = "movies.json"
 CODE_FILE = "next_code.txt"
+USERS_FILE = "users.json"
 
 # ================== BAZANI YUKLASH ==================
 if os.path.exists(MOVIES_FILE):
@@ -38,11 +39,19 @@ if os.path.exists(CODE_FILE):
 else:
     NEXT_CODE = 1
 
+if os.path.exists(USERS_FILE):
+    with open(USERS_FILE, "r") as f:
+        USERS = json.load(f)
+else:
+    USERS = []
+
 def save_db():
     with open(MOVIES_FILE, "w") as f:
         json.dump(MOVIES, f)
     with open(CODE_FILE, "w") as f:
         f.write(str(NEXT_CODE))
+    with open(USERS_FILE, "w") as f:
+        json.dump(USERS, f)
 
 # ================== A'ZOLIK ==================
 async def check_subscription(user_id, context):
@@ -66,7 +75,13 @@ async def send_subscribe_message(update: Update):
 
 # ================== START ==================
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not await check_subscription(update.effective_user.id, context):
+    user_id = update.effective_user.id
+
+    if user_id not in USERS:
+        USERS.append(user_id)
+        save_db()
+
+    if not await check_subscription(user_id, context):
         await send_subscribe_message(update)
         return
 
@@ -111,6 +126,14 @@ async def delete_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "🗑 Qaysi kino o‘chiriladi?\n\n📌 Kino kodini yuboring."
     )
 
+# ================== /ads ==================
+async def ads(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id != ADMIN_ID:
+        return
+
+    context.user_data["awaiting_ads"] = True
+    await update.message.reply_text("📢 Reklama xabarini yuboring.")
+
 # ================== 25 DAQIQA O‘CHIRISH ==================
 async def delete_later(context, chat_id, message_id):
     await asyncio.sleep(25 * 60)
@@ -125,6 +148,21 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     user_id = update.effective_user.id
     text = update.message.text.strip() if update.message.text else None
+
+    # ===== ADS SEND =====
+    if user_id == ADMIN_ID and context.user_data.get("awaiting_ads"):
+        context.user_data["awaiting_ads"] = False
+
+        sent_count = 0
+        for uid in USERS:
+            try:
+                await update.message.copy(uid)
+                sent_count += 1
+            except:
+                pass
+
+        await update.message.reply_text(f"✅ Reklama yuborildi: {sent_count} ta foydalanuvchi.")
+        return
 
     # ===== DELETE =====
     if user_id == ADMIN_ID and context.user_data.get("awaiting_delete"):
@@ -185,6 +223,7 @@ def main():
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("download", download))
     app.add_handler(CommandHandler("delete", delete_cmd))
+    app.add_handler(CommandHandler("ads", ads))
     app.add_handler(CallbackQueryHandler(callbacks))
     app.add_handler(MessageHandler(filters.ALL, handle_message))
 
