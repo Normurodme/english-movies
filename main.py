@@ -47,6 +47,10 @@ if os.path.exists(USERS_FILE):
 else:
     USERS = []
 
+SERIAL_MODE = False
+SERIAL_CODE = None
+SERIAL_PART = 1
+
 def save_db():
     with open(MOVIES_FILE, "w") as f:
         json.dump(MOVIES, f)
@@ -96,6 +100,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # ================== CALLBACK ==================
 async def callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    global SERIAL_MODE, SERIAL_CODE, SERIAL_PART
+
     query = update.callback_query
     await query.answer()
 
@@ -107,15 +113,59 @@ async def callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             await query.answer("❌ Kanalga a’zo emassiz!", show_alert=True)
 
+    if query.data == "dl_movie":
+        context.user_data["awaiting_movie"] = True
+        context.user_data["mode"] = "movie"
+        await query.message.edit_text("🎬 Kino yuboring.")
+
+    if query.data == "dl_serial":
+        SERIAL_MODE = True
+        SERIAL_CODE = str(NEXT_CODE)
+        SERIAL_PART = 1
+        context.user_data["awaiting_movie"] = True
+        context.user_data["mode"] = "serial"
+        await query.message.edit_text("📺 Serial qismlarini yuboring.\nTugatish uchun /done yozing.")
+
 # ================== /download ==================
 async def download(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != ADMIN_ID:
         return
 
-    context.user_data["awaiting_movie"] = True
+    keyboard = InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton("🎬 Kino", callback_data="dl_movie"),
+            InlineKeyboardButton("📺 Serial", callback_data="dl_serial")
+        ]
+    ])
+
     await update.message.reply_text(
-        "🎬 Kino yuboring.\n\n"
-        "📌 Video ostiga avtomatik kod beriladi."
+        "Nimani yuklamoqchisiz?",
+        reply_markup=keyboard
+    )
+
+# ================== /done ==================
+async def done(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    global SERIAL_MODE, SERIAL_CODE, SERIAL_PART, NEXT_CODE
+
+    if update.effective_user.id != ADMIN_ID:
+        return
+
+    if SERIAL_MODE:
+        await update.message.reply_text(f"✅ Serial saqlandi!\nKod: {SERIAL_CODE}")
+        NEXT_CODE += 1
+        save_db()
+    SERIAL_MODE = False
+
+# ================== /stats ==================
+async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id != ADMIN_ID:
+        return
+
+    await update.message.reply_text(
+        f"📊 Statistika\n\n"
+        f"👥 Users: {len(USERS)}\n"
+        f"🎬 Movies: {len(MOVIES)}\n"
+        f"🔢 Next Code: {NEXT_CODE}"
     )
 
 # ================== /delete ==================
@@ -124,9 +174,7 @@ async def delete_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     context.user_data["awaiting_delete"] = True
-    await update.message.reply_text(
-        "🗑 Qaysi kino o‘chiriladi?\n\n📌 Kino kodini yuboring."
-    )
+    await update.message.reply_text("🗑 Kino kodini yuboring.")
 
 # ================== /ads ==================
 async def ads(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -136,7 +184,7 @@ async def ads(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["awaiting_ads"] = True
     await update.message.reply_text("📢 Reklama xabarini yuboring.")
 
-# ================== 25 DAQIQA O‘CHIRISH ==================
+# ================== DELETE TIMER ==================
 async def delete_later(context, chat_id, message_id):
     await asyncio.sleep(25 * 60)
     try:
@@ -146,7 +194,7 @@ async def delete_later(context, chat_id, message_id):
 
 # ================== MESSAGE ==================
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    global NEXT_CODE
+    global NEXT_CODE, SERIAL_PART, SERIAL_MODE, SERIAL_CODE
 
     user_id = update.effective_user.id
     text = update.message.text.strip() if update.message.text else None
@@ -154,16 +202,14 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # ===== ADS SEND =====
     if user_id == ADMIN_ID and context.user_data.get("awaiting_ads"):
         context.user_data["awaiting_ads"] = False
-
-        sent_count = 0
+        count = 0
         for uid in USERS:
             try:
                 await update.message.copy(uid)
-                sent_count += 1
+                count += 1
             except:
                 pass
-
-        await update.message.reply_text(f"✅ Reklama yuborildi: {sent_count} ta foydalanuvchi.")
+        await update.message.reply_text(f"✅ Reklama yuborildi: {count}")
         return
 
     # ===== DELETE =====
@@ -171,9 +217,9 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if text in MOVIES:
             del MOVIES[text]
             save_db()
-            await update.message.reply_text(f"🗑 Kino {text} o‘chirildi.")
+            await update.message.reply_text("🗑 O‘chirildi.")
         else:
-            await update.message.reply_text("❌ Bunday kod topilmadi.")
+            await update.message.reply_text("Topilmadi.")
         context.user_data["awaiting_delete"] = False
         return
 
@@ -185,22 +231,24 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ):
         file = update.message.video or update.message.document
 
+        if context.user_data.get("mode") == "movie":
+            code = str(NEXT_CODE)
+            NEXT_CODE += 1
+        else:
+            code = f"{SERIAL_CODE}.{SERIAL_PART}"
+            SERIAL_PART += 1
+
         sent_channel = await context.bot.copy_message(
             chat_id=STORAGE_CHANNEL_ID,
             from_chat_id=update.effective_chat.id,
-            message_id=update.message.message_id
+            message_id=update.message.message_id,
+            caption=f"Code: {code}"
         )
 
-        code = str(NEXT_CODE)
         MOVIES[code] = sent_channel.message_id
-        NEXT_CODE += 1
         save_db()
 
-        await update.message.reply_text(
-            f"✅ Kino saqlandi!\n\n📌 Kod: {code}"
-        )
-
-        context.user_data["awaiting_movie"] = False
+        await update.message.reply_text(f"✅ Saqlandi\nKod: {code}")
         return
 
     # ===== USER =====
@@ -209,10 +257,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     if not text or text not in MOVIES:
-        await update.message.reply_text(
-            "❌ Bunday kod topilmadi.\n"
-            "👉 Kino kodini ochiq kanaldan tekshirib ko‘ring."
-        )
+        await update.message.reply_text("❌ Kod topilmadi.")
         return
 
     sent = await context.bot.copy_message(
@@ -227,9 +272,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         caption=WARNING_TEXT
     )
 
-    asyncio.create_task(
-        delete_later(context, update.effective_chat.id, sent.message_id)
-    )
+    asyncio.create_task(delete_later(context, update.effective_chat.id, sent.message_id))
 
 # ================== RUN ==================
 def main():
@@ -237,12 +280,14 @@ def main():
 
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("download", download))
+    app.add_handler(CommandHandler("done", done))
     app.add_handler(CommandHandler("delete", delete_cmd))
     app.add_handler(CommandHandler("ads", ads))
+    app.add_handler(CommandHandler("stats", stats))
     app.add_handler(CallbackQueryHandler(callbacks))
     app.add_handler(MessageHandler(filters.ALL, handle_message))
 
-    print("🎬 Movies in English bot ishga tushdi...")
+    print("🎬 Movies bot ishga tushdi...")
     app.run_polling()
 
 if __name__ == "__main__":
