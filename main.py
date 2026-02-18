@@ -216,6 +216,16 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if user_id == ADMIN_ID and context.user_data.get("awaiting_delete"):
         if text in MOVIES:
             del MOVIES[text]
+
+            # 🔥 YANGI QO‘SHILGAN LOGIKA
+            try:
+                if "." not in text:
+                    num = int(text)
+                    if num == NEXT_CODE - 1:
+                        NEXT_CODE -= 1
+            except:
+                pass
+
             save_db()
             await update.message.reply_text("🗑 O‘chirildi.")
         else:
