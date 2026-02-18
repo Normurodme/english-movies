@@ -59,6 +59,16 @@ def save_db():
     with open(USERS_FILE, "w") as f:
         json.dump(USERS, f)
 
+# ================== CHANNEL SEARCH ==================
+async def find_movie_in_channel(code, context):
+    try:
+        async for msg in context.bot.get_chat_history(STORAGE_CHANNEL_ID, limit=5000):
+            if msg.caption and f"Code: {code}" in msg.caption:
+                return msg.message_id
+    except:
+        pass
+    return None
+
 # ================== A'ZOLIK ==================
 async def check_subscription(user_id, context):
     try:
@@ -216,16 +226,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if user_id == ADMIN_ID and context.user_data.get("awaiting_delete"):
         if text in MOVIES:
             del MOVIES[text]
-
-            # 🔥 YANGI QO‘SHILGAN LOGIKA
-            try:
-                if "." not in text:
-                    num = int(text)
-                    if num == NEXT_CODE - 1:
-                        NEXT_CODE -= 1
-            except:
-                pass
-
             save_db()
             await update.message.reply_text("🗑 O‘chirildi.")
         else:
@@ -239,8 +239,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         and context.user_data.get("awaiting_movie")
         and (update.message.video or update.message.document)
     ):
-        file = update.message.video or update.message.document
-
         if context.user_data.get("mode") == "movie":
             code = str(NEXT_CODE)
             NEXT_CODE += 1
@@ -266,14 +264,27 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await send_subscribe_message(update)
         return
 
-    if not text or text not in MOVIES:
+    if not text:
+        await update.message.reply_text("❌ Kod topilmadi.")
+        return
+
+    msg_id = MOVIES.get(text)
+
+    if not msg_id:
+        msg_id = await find_movie_in_channel(text, context)
+
+        if msg_id:
+            MOVIES[text] = msg_id
+            save_db()
+
+    if not msg_id:
         await update.message.reply_text("❌ Kod topilmadi.")
         return
 
     sent = await context.bot.copy_message(
         chat_id=update.effective_chat.id,
         from_chat_id=STORAGE_CHANNEL_ID,
-        message_id=MOVIES[text]
+        message_id=msg_id
     )
 
     await context.bot.edit_message_caption(
