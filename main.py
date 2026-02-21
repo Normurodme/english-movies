@@ -15,8 +15,9 @@ WARNING_TEXT = (
     "📥 Please download or save it."
 )
 
-DB_FILE = "db.json"
-USERS_FILE = "users.json"
+# ===== PERSISTENT STORAGE =====
+DB_FILE = "/data/db.json"
+USERS_FILE = "/data/users.json"
 
 # ================= LOAD =================
 
@@ -177,11 +178,6 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
     uid=update.effective_user.id
     text=update.message.text.strip() if update.message.text else None
 
-    # AUTO SAVE USER
-    if uid not in USERS:
-        USERS.append(uid)
-        save()
-
     # ADS
     if uid==ADMIN_ID and context.user_data.get("ads"):
         context.user_data["ads"]=False
@@ -206,7 +202,7 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text("Topilmadi")
         return
 
-    # UPLOAD
+    # UPLOAD MOVIE
     if uid==ADMIN_ID and context.user_data.get("upload") and (update.message.video or update.message.document):
 
         if context.user_data["upload"]=="movie":
@@ -216,11 +212,10 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
             code=f"{SERIAL_CODE}.{SERIAL_PART}"
             SERIAL_PART+=1
 
-        file = update.message.video or update.message.document
-
-        sent = await context.bot.send_video(
+        sent=await context.bot.copy_message(
             STORAGE_CHANNEL_ID,
-            file.file_id,
+            update.effective_chat.id,
+            update.message.message_id,
             caption=f"Code: {code}"
         )
 
@@ -230,7 +225,7 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"✅ Saqlandi\nKod: {code}")
         return
 
-    # USER
+    # USER REQUEST
     if not await check_sub(uid,context):
         await sub_msg(update)
         return
@@ -244,13 +239,16 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("❌ Kod topilmadi")
         return
 
-    sent=await context.bot.forward_message(
+    sent=await context.bot.copy_message(
         uid,
         STORAGE_CHANNEL_ID,
         msg_id
     )
 
+    warn=await context.bot.send_message(uid,WARNING_TEXT)
+
     asyncio.create_task(autodel(context,uid,sent.message_id))
+    asyncio.create_task(autodel(context,uid,warn.message_id))
 
 # ================= RUN =================
 
