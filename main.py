@@ -283,10 +283,14 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
     if text and text.startswith("/"):
         return
 
-    # broadcast
+    # broadcast (VIP reklama olmaydi)
     if uid==ADMIN_ID and context.user_data.get("ads"):
         context.user_data["ads"]=False
         for u in USERS:
+            if u==ADMIN_ID:
+                continue
+            if is_vip(u):
+                continue
             try:
                 await update.message.copy(u)
             except:
