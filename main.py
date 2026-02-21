@@ -1,6 +1,7 @@
 import os
 import json
 import asyncio
+import time
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, CallbackQueryHandler, ContextTypes, filters
 
@@ -18,6 +19,7 @@ WARNING_TEXT = (
 # ===== PERSISTENT STORAGE =====
 DB_FILE = "/data/db.json"
 USERS_FILE = "/data/users.json"
+STATS_FILE = "/data/stats.json"
 
 # ================= LOAD =================
 
@@ -31,6 +33,11 @@ if os.path.exists(USERS_FILE):
 else:
     USERS = []
 
+if os.path.exists(STATS_FILE):
+    STATS = json.load(open(STATS_FILE))
+else:
+    STATS = {"requests":[], "users":[]}
+
 SERIAL_MODE = False
 SERIAL_CODE = None
 SERIAL_PART = 1
@@ -38,6 +45,7 @@ SERIAL_PART = 1
 def save():
     json.dump(DB, open(DB_FILE,"w"))
     json.dump(USERS, open(USERS_FILE,"w"))
+    json.dump(STATS, open(STATS_FILE,"w"))
 
 # ================= SUB CHECK =================
 
@@ -136,11 +144,19 @@ async def stats(update:Update,context:ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id!=ADMIN_ID:
         return
 
+    now=time.time()
+    day=86400
+
+    users_24=set([u for u,t in STATS["users"] if now-t<day])
+    req_24=len([1 for t in STATS["requests"] if now-t<day])
+
     await update.message.reply_text(
         f"📊 Statistika\n\n"
         f"👥 Users: {len(USERS)}\n"
         f"🎬 Movies: {len(DB['movies'])}\n"
-        f"🔢 Next: {DB['next']}"
+        f"🔢 Next: {DB['next']}\n\n"
+        f"🕒 24h Users: {len(users_24)}\n"
+        f"📥 24h Requests: {req_24}"
     )
 
 # ================= DELETE =================
@@ -270,16 +286,20 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("❌ Kod topilmadi")
         return
 
+    # STATS SAVE
+    now=time.time()
+    STATS["requests"].append(now)
+    STATS["users"].append((uid,now))
+    save()
+
     sent=await context.bot.copy_message(
         uid,
         STORAGE_CHANNEL_ID,
-        msg_id
+        msg_id,
+        caption=WARNING_TEXT
     )
 
-    warn=await context.bot.send_message(uid,WARNING_TEXT)
-
     asyncio.create_task(autodel(context,uid,sent.message_id))
-    asyncio.create_task(autodel(context,uid,warn.message_id))
 
 # ================= RUN =================
 
