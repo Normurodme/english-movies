@@ -41,7 +41,7 @@ def load(path,default):
 DB=load(DB_FILE,{"movies":{}, "next":1, "vip_only":[]})
 USERS=load(USERS_FILE,[])
 STATS=load(STATS_FILE,{"requests":[], "users":[]})
-VIP=load(VIP_FILE,{})
+VIP=load(VIP_FILE,{})   # format: {userid:{expire:"iso",plan:int}}
 
 SERIAL_MODE=False
 SERIAL_CODE=None
@@ -54,25 +54,32 @@ def save():
     json.dump(STATS,open(STATS_FILE,"w"))
     json.dump(VIP,open(VIP_FILE,"w"))
 
-# ================= VIP =================
+# ================= VIP CHECK =================
 
 def is_vip(uid):
-    exp=VIP.get(str(uid))
-    if not exp:
+    user=VIP.get(str(uid))
+    if not user:
         return False
-    dt=datetime.fromisoformat(exp)
-    if datetime.utcnow()>dt:
+
+    exp=datetime.fromisoformat(user["expire"])
+
+    if datetime.utcnow()>exp:
         del VIP[str(uid)]
         save()
         return False
+
     return True
+
+# ================= VIP CLEANER =================
 
 async def vip_checker(app):
     while True:
         now=datetime.utcnow()
         expired=[]
-        for uid,exp in VIP.items():
-            if now>datetime.fromisoformat(exp):
+
+        for uid,data in VIP.items():
+            exp=datetime.fromisoformat(data["expire"])
+            if now>exp:
                 expired.append(uid)
 
         for uid in expired:
@@ -128,7 +135,7 @@ async def info(update:Update,context:ContextTypes.DEFAULT_TYPE):
         "• Reklama kelmaydi"
     )
 
-# ================= VIP =================
+# ================= VIP MENU =================
 
 async def vip(update:Update,context:ContextTypes.DEFAULT_TYPE):
     kb=InlineKeyboardMarkup([
@@ -139,27 +146,6 @@ async def vip(update:Update,context:ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("👑 VIP tarif tanlang:",reply_markup=kb)
     await info(update,context)
 
-# ================= STATS =================
-# ❗ MISSING FUNCTION FIXED
-
-async def stats(update:Update,context:ContextTypes.DEFAULT_TYPE):
-    if update.effective_user.id!=ADMIN_ID:
-        return
-
-    now=time.time()
-    day=86400
-
-    users_24=set([u for u,t in STATS["users"] if now-t<day])
-    req_24=len([1 for t in STATS["requests"] if now-t<day])
-
-    await update.message.reply_text(
-        f"👥 Users: {len(USERS)}\n"
-        f"🎬 Movies: {len(DB['movies'])}\n"
-        f"🔢 Next: {DB['next']}\n\n"
-        f"🕒 24h users: {len(users_24)}\n"
-        f"📥 24h requests: {req_24}"
-    )
-
 # ================= VIP LIST =================
 
 async def vips(update:Update,context:ContextTypes.DEFAULT_TYPE):
@@ -169,12 +155,12 @@ async def vips(update:Update,context:ContextTypes.DEFAULT_TYPE):
     now=datetime.utcnow()
     text="👑 VIP foydalanuvchilar:\n\n"
 
-    for uid,exp in list(VIP.items()):
-        dt=datetime.fromisoformat(exp)
-        if now>dt:
+    for uid,data in list(VIP.items()):
+        exp=datetime.fromisoformat(data["expire"])
+        if now>exp:
             del VIP[uid]
             continue
-        text+=f"{uid} | {dt.strftime('%Y-%m-%d %H:%M')}\n"
+        text+=f"{uid} | {exp.strftime('%Y-%m-%d %H:%M')}\n"
 
     save()
 
@@ -300,9 +286,17 @@ async def precheckout(update:Update,context:ContextTypes.DEFAULT_TYPE):
     await update.pre_checkout_query.answer(ok=True)
 
 async def success(update:Update,context:ContextTypes.DEFAULT_TYPE):
+    pay=update.message.successful_payment
     uid=update.effective_user.id
-    days=int(update.message.successful_payment.invoice_payload.split("_")[1])
-    VIP[str(uid)]=(datetime.utcnow()+timedelta(days=days)).isoformat()
+    days=int(pay.invoice_payload.split("_")[1])
+
+    expire=datetime.utcnow()+timedelta(days=days)
+
+    VIP[str(uid)]={
+        "expire":expire.isoformat(),
+        "plan":days
+    }
+
     save()
     await update.message.reply_text("👑 VIP aktivlashtirildi!")
 
@@ -413,7 +407,6 @@ def main():
     app.add_handler(CommandHandler("done",done))
     app.add_handler(CommandHandler("delete",delete_cmd))
     app.add_handler(CommandHandler("ads",ads))
-    app.add_handler(CommandHandler("stats",stats))
     app.add_handler(CommandHandler("vip",vip))
     app.add_handler(CommandHandler("info",info))
     app.add_handler(CommandHandler("vips",vips))
