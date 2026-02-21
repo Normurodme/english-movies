@@ -67,12 +67,10 @@ def is_vip(uid):
         return False
     return True
 
-
 async def vip_checker(app):
     while True:
         now=datetime.utcnow()
         expired=[]
-
         for uid,exp in VIP.items():
             if now>datetime.fromisoformat(exp):
                 expired.append(uid)
@@ -141,6 +139,27 @@ async def vip(update:Update,context:ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("👑 VIP tarif tanlang:",reply_markup=kb)
     await info(update,context)
 
+# ================= STATS =================
+# ❗ MISSING FUNCTION FIXED
+
+async def stats(update:Update,context:ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id!=ADMIN_ID:
+        return
+
+    now=time.time()
+    day=86400
+
+    users_24=set([u for u,t in STATS["users"] if now-t<day])
+    req_24=len([1 for t in STATS["requests"] if now-t<day])
+
+    await update.message.reply_text(
+        f"👥 Users: {len(USERS)}\n"
+        f"🎬 Movies: {len(DB['movies'])}\n"
+        f"🔢 Next: {DB['next']}\n\n"
+        f"🕒 24h users: {len(users_24)}\n"
+        f"📥 24h requests: {req_24}"
+    )
+
 # ================= VIP LIST =================
 
 async def vips(update:Update,context:ContextTypes.DEFAULT_TYPE):
@@ -148,7 +167,7 @@ async def vips(update:Update,context:ContextTypes.DEFAULT_TYPE):
         return
 
     now=datetime.utcnow()
-    text="👑 Aktiv VIP foydalanuvchilar:\n\n"
+    text="👑 VIP foydalanuvchilar:\n\n"
 
     for uid,exp in list(VIP.items()):
         dt=datetime.fromisoformat(exp)
@@ -159,7 +178,7 @@ async def vips(update:Update,context:ContextTypes.DEFAULT_TYPE):
 
     save()
 
-    if text=="👑 Aktiv VIP foydalanuvchilar:\n\n":
+    if text=="👑 VIP foydalanuvchilar:\n\n":
         text="VIP user yo‘q"
 
     await update.message.reply_text(text)
@@ -283,13 +302,9 @@ async def precheckout(update:Update,context:ContextTypes.DEFAULT_TYPE):
 async def success(update:Update,context:ContextTypes.DEFAULT_TYPE):
     uid=update.effective_user.id
     days=int(update.message.successful_payment.invoice_payload.split("_")[1])
-
-    expire=datetime.utcnow()+timedelta(days=days)
-    VIP[str(uid)]=expire.isoformat()
-
+    VIP[str(uid)]=(datetime.utcnow()+timedelta(days=days)).isoformat()
     save()
-
-    await update.message.reply_text(f"👑 VIP aktiv!\n⏳ Tugash: {expire.strftime('%Y-%m-%d %H:%M')}")
+    await update.message.reply_text("👑 VIP aktivlashtirildi!")
 
 # ================= MESSAGE =================
 
