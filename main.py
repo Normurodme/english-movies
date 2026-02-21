@@ -152,6 +152,15 @@ async def delete_cmd(update:Update,context:ContextTypes.DEFAULT_TYPE):
     context.user_data["del"]=True
     await update.message.reply_text("🗑 Kod yuboring")
 
+# ================= NDELETE =================
+
+async def ndelete_cmd(update:Update,context:ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id!=ADMIN_ID:
+        return
+
+    context.user_data["nreset"]=True
+    await update.message.reply_text("🔢 Yangi next kodni yuboring")
+
 # ================= ADS =================
 
 async def ads(update:Update,context:ContextTypes.DEFAULT_TYPE):
@@ -191,7 +200,18 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"✅ Yuborildi: {s}")
         return
 
-    # DELETE
+    # RESET NEXT NUMBER
+    if uid==ADMIN_ID and context.user_data.get("nreset"):
+        context.user_data["nreset"]=False
+        try:
+            DB["next"]=int(text)
+            save()
+            await update.message.reply_text(f"✅ Next kod o‘zgardi → {text}")
+        except:
+            await update.message.reply_text("❌ Raqam yuboring")
+        return
+
+    # DELETE MOVIE
     if uid==ADMIN_ID and context.user_data.get("del"):
         context.user_data["del"]=False
 
@@ -199,7 +219,6 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
 
             del DB["movies"][text]
 
-            # ===== NEXT CODE ORQAGA SURISH LOGIKASI =====
             try:
                 if "." not in text:
                     num=int(text)
@@ -271,6 +290,7 @@ def main():
     app.add_handler(CommandHandler("download",download))
     app.add_handler(CommandHandler("done",done))
     app.add_handler(CommandHandler("delete",delete_cmd))
+    app.add_handler(CommandHandler("ndelete",ndelete_cmd))
     app.add_handler(CommandHandler("ads",ads))
     app.add_handler(CommandHandler("stats",stats))
     app.add_handler(CallbackQueryHandler(callbacks))
