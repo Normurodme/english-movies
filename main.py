@@ -15,8 +15,12 @@ WARNING_TEXT = (
     "📥 Please download or save it."
 )
 
-DB_FILE = "db.json"
-USERS_FILE = "users.json"
+# ========= PERSISTENT STORAGE =========
+DATA_DIR = "/data"
+os.makedirs(DATA_DIR, exist_ok=True)
+
+DB_FILE = f"{DATA_DIR}/db.json"
+USERS_FILE = f"{DATA_DIR}/users.json"
 
 # ================= LOAD =================
 
