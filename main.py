@@ -4,21 +4,34 @@ import asyncio
 import time
 from datetime import datetime, timedelta
 
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, LabeledPrice
-from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, CallbackQueryHandler, ContextTypes, filters, PreCheckoutQueryHandler
+from telegram import (
+    Update,
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    LabeledPrice
+)
+
+from telegram.ext import (
+    ApplicationBuilder,
+    CommandHandler,
+    MessageHandler,
+    CallbackQueryHandler,
+    ContextTypes,
+    filters,
+    PreCheckoutQueryHandler
+)
+
+# =========================
+# CONFIG
+# =========================
 
 TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 
-REQUIRED_CHANNEL = "@moviesbyone"
 ADMIN_ID = 6220077209
+REQUIRED_CHANNEL = "@moviesbyone"
 STORAGE_CHANNEL_ID = -1003793414081
 
 REQUEST_DELAY = 8
-
-WARNING_TEXT = (
-    "⚠️ <b>Video 15 daqiqadan keyin o‘chadi!</b>\n"
-    "📥 Yuklab oling."
-)
 
 VIP_PLANS = {
     "week": (35,7),
@@ -26,11 +39,18 @@ VIP_PLANS = {
     "3month": (300,90)
 }
 
-# ---------- FILES ----------
+WARNING_TEXT = (
+    "⚠️ <b>Video 15 daqiqadan keyin o‘chadi!</b>\n"
+    "📥 Yuklab oling."
+)
 
-os.makedirs("/data",exist_ok=True)
+# =========================
+# STORAGE
+# =========================
 
-def load(path,default):
+os.makedirs("/data", exist_ok=True)
+
+def load(path, default):
     if os.path.exists(path):
         with open(path) as f:
             return json.load(f)
@@ -42,28 +62,32 @@ def save_file(path,data):
 
 DB_FILE="/data/db.json"
 USERS_FILE="/data/users.json"
-STATS_FILE="/data/stats.json"
 VIP_FILE="/data/vip.json"
+STATS_FILE="/data/stats.json"
 
 DB=load(DB_FILE,{"movies":{}, "next":1, "vip_only":[]})
 USERS=load(USERS_FILE,[])
-STATS=load(STATS_FILE,{"requests":[], "users":[]})
 VIP=load(VIP_FILE,{})
+STATS=load(STATS_FILE,{"requests":[], "users":[]})
 
 def save():
     save_file(DB_FILE,DB)
     save_file(USERS_FILE,USERS)
-    save_file(STATS_FILE,STATS)
     save_file(VIP_FILE,VIP)
+    save_file(STATS_FILE,STATS)
 
-# ---------- STATES ----------
+# =========================
+# STATES
+# =========================
 
 SERIAL_MODE=False
 SERIAL_CODE=None
 SERIAL_PART=1
 LAST_REQ={}
 
-# ---------- VIP ----------
+# =========================
+# VIP SYSTEM
+# =========================
 
 def is_vip(uid:int):
     exp=VIP.get(str(uid))
@@ -79,13 +103,13 @@ async def vip_checker(app):
     while True:
         now=datetime.utcnow()
         expired=[]
-        for uid,exp in VIP.items():
+        for uid,exp in list(VIP.items()):
             if now>datetime.fromisoformat(exp):
                 expired.append(uid)
 
         for uid in expired:
             try:
-                await app.bot.send_message(int(uid),"⏳ VIP tugadi. /vip orqali yangilang")
+                await app.bot.send_message(int(uid),"⏳ VIP muddati tugadi.\nYangilash: /vip")
             except:
                 pass
             del VIP[uid]
@@ -95,7 +119,9 @@ async def vip_checker(app):
 
         await asyncio.sleep(3600)
 
-# ---------- SUB ----------
+# =========================
+# SUB CHECK
+# =========================
 
 async def check_sub(user_id,context):
     try:
@@ -106,12 +132,14 @@ async def check_sub(user_id,context):
 
 async def sub_msg(update):
     kb=InlineKeyboardMarkup([
-        [InlineKeyboardButton("📢 Kanal",url="https://t.me/moviesbyone")],
+        [InlineKeyboardButton("📢 Kanalga o'tish",url="https://t.me/moviesbyone")],
         [InlineKeyboardButton("✅ Tekshirish",callback_data="check")]
     ])
-    await update.message.reply_text("Kanalga a’zo bo‘ling",reply_markup=kb)
+    await update.message.reply_text("Botdan foydalanish uchun kanalga a'zo bo'ling",reply_markup=kb)
 
-# ---------- START ----------
+# =========================
+# START
+# =========================
 
 async def start(update:Update,context:ContextTypes.DEFAULT_TYPE):
     uid=update.effective_user.id
@@ -124,9 +152,14 @@ async def start(update:Update,context:ContextTypes.DEFAULT_TYPE):
         await sub_msg(update)
         return
 
-    await update.message.reply_text("🎬 Kino kodini yuboring")
+    await update.message.reply_text(
+        "🎬 <b>Kino kodini yuboring</b>\n\nMisol: <code>12</code>",
+        parse_mode="HTML"
+    )
 
-# ---------- VIP ----------
+# =========================
+# VIP BUY
+# =========================
 
 async def vip(update:Update,context:ContextTypes.DEFAULT_TYPE):
     kb=InlineKeyboardMarkup([
@@ -134,29 +167,36 @@ async def vip(update:Update,context:ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton("⭐ 1 oy — 125",callback_data="buy_month")],
         [InlineKeyboardButton("⭐ 3 oy — 300",callback_data="buy_3month")]
     ])
-    await update.message.reply_text("VIP tarif:",reply_markup=kb)
+    await update.message.reply_text("👑 VIP tarifni tanlang:",reply_markup=kb)
 
-# ---------- VIP LIST ----------
+# =========================
+# VIP LIST
+# =========================
 
 async def vips(update:Update,context:ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id!=ADMIN_ID:
         return
 
     if not VIP:
-        await update.message.reply_text("VIP yo‘q")
+        await update.message.reply_text("VIP yo'q")
         return
 
-    text="VIP LIST\n\n"
+    text="👑 VIP USERS\n\n"
 
     for uid,exp in VIP.items():
-        user=await context.bot.get_chat(uid)
-        name=user.username if user.username else user.full_name
-        end=datetime.fromisoformat(exp)
-        text+=f"{uid} | {name}\nTugaydi: {end}\n\n"
+        try:
+            user=await context.bot.get_chat(uid)
+            name=user.username if user.username else user.full_name
+        except:
+            name="unknown"
+
+        text+=f"{uid} | {name}\nTugaydi: {exp}\n\n"
 
     await update.message.reply_text(text)
 
-# ---------- DOWNLOAD PANEL ----------
+# =========================
+# DOWNLOAD PANEL
+# =========================
 
 async def download(update:Update,context:ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id!=ADMIN_ID:
@@ -167,7 +207,7 @@ async def download(update:Update,context:ContextTypes.DEFAULT_TYPE):
          InlineKeyboardButton("📺 Serial",callback_data="serial")]
     ])
 
-    await update.message.reply_text("Yuklash turini tanlang",reply_markup=kb)
+    await update.message.reply_text("Yuklash turini tanlang:",reply_markup=kb)
 
 async def vipdownload(update:Update,context:ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id!=ADMIN_ID:
@@ -178,9 +218,11 @@ async def vipdownload(update:Update,context:ContextTypes.DEFAULT_TYPE):
          InlineKeyboardButton("🔒 VIP Serial",callback_data="vipserial")]
     ])
 
-    await update.message.reply_text("VIP yuklash",reply_markup=kb)
+    await update.message.reply_text("VIP yuklash paneli:",reply_markup=kb)
 
-# ---------- CALLBACK ----------
+# =========================
+# CALLBACK
+# =========================
 
 async def callbacks(update:Update,context:ContextTypes.DEFAULT_TYPE):
     global SERIAL_MODE,SERIAL_CODE,SERIAL_PART
@@ -190,13 +232,13 @@ async def callbacks(update:Update,context:ContextTypes.DEFAULT_TYPE):
 
     if q.data=="check":
         if await check_sub(q.from_user.id,context):
-            await q.message.edit_text("Tasdiqlandi")
+            await q.message.edit_text("✅ Tasdiqlandi")
         else:
-            await q.answer("Kanalga kiring",show_alert=True)
+            await q.answer("Avval kanalga kiring",show_alert=True)
 
     if q.data=="movie":
         context.user_data["upload"]="movie"
-        context.user_data["vipup"]=False
+        context.user_data["vip"]=False
         await q.message.edit_text("Kino yuboring")
 
     if q.data=="serial":
@@ -204,12 +246,12 @@ async def callbacks(update:Update,context:ContextTypes.DEFAULT_TYPE):
         SERIAL_CODE=str(DB["next"])
         SERIAL_PART=1
         context.user_data["upload"]="serial"
-        context.user_data["vipup"]=False
-        await q.message.edit_text("Serial yuboring /done tugatadi")
+        context.user_data["vip"]=False
+        await q.message.edit_text("Serial yuboring\n/done tugatadi")
 
     if q.data=="vipmovie":
         context.user_data["upload"]="movie"
-        context.user_data["vipup"]=True
+        context.user_data["vip"]=True
         await q.message.edit_text("VIP kino yuboring")
 
     if q.data=="vipserial":
@@ -217,46 +259,49 @@ async def callbacks(update:Update,context:ContextTypes.DEFAULT_TYPE):
         SERIAL_CODE=str(DB["next"])
         SERIAL_PART=1
         context.user_data["upload"]="serial"
-        context.user_data["vipup"]=True
+        context.user_data["vip"]=True
         await q.message.edit_text("VIP serial yuboring")
 
-# ---------- DONE SERIAL ----------
+# =========================
+# DONE SERIAL
+# =========================
 
 async def done(update:Update,context:ContextTypes.DEFAULT_TYPE):
     global SERIAL_MODE
+
     if update.effective_user.id!=ADMIN_ID:
         return
 
     if SERIAL_MODE:
-        await update.message.reply_text(f"Saqlandi kod: {SERIAL_CODE}")
+        await update.message.reply_text(f"Saqlandi. Kod: {SERIAL_CODE}")
         DB["next"]+=1
         save()
 
     SERIAL_MODE=False
 
-# ---------- DELETE ----------
+# =========================
+# DELETE
+# =========================
 
 async def delete_cmd(update:Update,context:ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id!=ADMIN_ID:
         return
     context.user_data["delete"]=True
-    await update.message.reply_text("Kod yuboring")
+    await update.message.reply_text("O'chiriladigan kodni yuboring")
 
-async def ndelete(update:Update,context:ContextTypes.DEFAULT_TYPE):
-    if update.effective_user.id!=ADMIN_ID:
-        return
-    context.user_data["ndelete"]=True
-    await update.message.reply_text("O‘chiriladigan kodni yuboring")
-
-# ---------- ADS ----------
+# =========================
+# ADS
+# =========================
 
 async def ads(update:Update,context:ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id!=ADMIN_ID:
         return
     context.user_data["ads"]=True
-    await update.message.reply_text("Reklama yuboring")
+    await update.message.reply_text("Reklama matnini yuboring")
 
-# ---------- STATS ----------
+# =========================
+# STATS
+# =========================
 
 async def stats(update:Update,context:ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id!=ADMIN_ID:
@@ -272,20 +317,28 @@ async def stats(update:Update,context:ContextTypes.DEFAULT_TYPE):
         f"Users: {len(USERS)}\nMovies: {len(DB['movies'])}\nNext: {DB['next']}\n\n24h users: {len(users_24)}\n24h requests: {req_24}"
     )
 
-# ---------- MESSAGE ----------
+# =========================
+# MESSAGE HANDLER
+# =========================
 
 async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
+
     global SERIAL_PART
+
+    if update.message is None:
+        return
 
     uid=update.effective_user.id
     text=update.message.text.strip() if update.message.text else None
 
+    # command skip
     if text and text.startswith("/"):
         return
 
-    # broadcast (VIP reklama olmaydi)
+    # broadcast
     if uid==ADMIN_ID and context.user_data.get("ads"):
         context.user_data["ads"]=False
+        sent=0
         for u in USERS:
             if u==ADMIN_ID:
                 continue
@@ -293,8 +346,11 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
                 continue
             try:
                 await update.message.copy(u)
+                sent+=1
             except:
                 pass
+
+        await update.message.reply_text(f"Yuborildi: {sent}")
         return
 
     # delete
@@ -303,18 +359,9 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
         if text in DB["movies"]:
             del DB["movies"][text]
             save()
-            await update.message.reply_text("O‘chirildi")
-        return
-
-    # ndelete
-    if uid==ADMIN_ID and context.user_data.get("ndelete"):
-        context.user_data["ndelete"]=False
-        if text in DB["movies"]:
-            del DB["movies"][text]
-            save()
-            await update.message.reply_text("Kod o‘chirildi")
+            await update.message.reply_text("O'chirildi")
         else:
-            await update.message.reply_text("Topilmadi")
+            await update.message.reply_text("Kod topilmadi")
         return
 
     # upload
@@ -327,7 +374,7 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
             code=f"{SERIAL_CODE}.{SERIAL_PART}"
             SERIAL_PART+=1
 
-        caption = f"🔒Code: {code}" if context.user_data.get("vipup") else f"Code: {code}"
+        caption = f"🔒Code: {code}" if context.user_data.get("vip") else f"Code: {code}"
 
         sent=await context.bot.copy_message(
             STORAGE_CHANNEL_ID,
@@ -338,13 +385,18 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
 
         DB["movies"][code]=sent.message_id
 
-        if context.user_data.get("vipup"):
+        if context.user_data.get("vip"):
             DB["vip_only"].append(code)
 
+        context.user_data.pop("upload",None)
+        context.user_data.pop("vip",None)
+
         save()
+
         await update.message.reply_text(f"Saqlandi: {code}")
         return
 
+    # sub check
     if not await check_sub(uid,context):
         await sub_msg(update)
         return
@@ -352,31 +404,43 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
     if not text:
         return
 
+    # cooldown
     now=time.time()
     if uid in LAST_REQ and now-LAST_REQ[uid]<REQUEST_DELAY:
         await update.message.reply_text("Kutib turing")
         return
     LAST_REQ[uid]=now
 
+    # movie request
     msg_id=DB["movies"].get(text)
     if not msg_id:
         await update.message.reply_text("Kod topilmadi")
         return
 
+    # VIP check
     if text in DB.get("vip_only",[]) and not is_vip(uid):
-        await update.message.reply_text("🔒 Bu kino VIP uchun.\nVIP olish: /vip")
+        await update.message.reply_text("🔒 Bu VIP kino\nVIP olish: /vip")
         return
 
+    # stats
     STATS["requests"].append(now)
     STATS["users"].append((uid,now))
     save()
 
-    sent=await context.bot.copy_message(uid,STORAGE_CHANNEL_ID,msg_id,caption=WARNING_TEXT,parse_mode="HTML")
+    sent=await context.bot.copy_message(
+        uid,
+        STORAGE_CHANNEL_ID,
+        msg_id,
+        caption=WARNING_TEXT,
+        parse_mode="HTML"
+    )
 
     delete_sec=86400 if is_vip(uid) else 900
     asyncio.create_task(auto_delete(context,uid,sent.message_id,delete_sec))
 
-# ---------- AUTO DELETE ----------
+# =========================
+# AUTO DELETE
+# =========================
 
 async def auto_delete(context,chat,msg,sec):
     await asyncio.sleep(sec)
@@ -385,12 +449,15 @@ async def auto_delete(context,chat,msg,sec):
     except:
         pass
 
-# ---------- RUN ----------
+# =========================
+# RUN
+# =========================
 
 async def post_init(app):
     asyncio.create_task(vip_checker(app))
 
 def main():
+
     app=ApplicationBuilder().token(TOKEN).post_init(post_init).build()
 
     app.add_handler(CommandHandler("start",start))
@@ -399,7 +466,6 @@ def main():
     app.add_handler(CommandHandler("download",download))
     app.add_handler(CommandHandler("vipdownload",vipdownload))
     app.add_handler(CommandHandler("delete",delete_cmd))
-    app.add_handler(CommandHandler("ndelete",ndelete))
     app.add_handler(CommandHandler("ads",ads))
     app.add_handler(CommandHandler("stats",stats))
     app.add_handler(CommandHandler("done",done))
@@ -407,6 +473,7 @@ def main():
     app.add_handler(CallbackQueryHandler(callbacks))
     app.add_handler(MessageHandler(filters.ALL,msg))
 
+    print("BOT IS RUNNING...")
     app.run_polling()
 
 if __name__=="__main__":
