@@ -194,8 +194,20 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
     # DELETE
     if uid==ADMIN_ID and context.user_data.get("del"):
         context.user_data["del"]=False
+
         if text in DB["movies"]:
+
             del DB["movies"][text]
+
+            # ===== NEXT CODE ORQAGA SURISH LOGIKASI =====
+            try:
+                if "." not in text:
+                    num=int(text)
+                    if num == DB["next"]-1:
+                        DB["next"] -= 1
+            except:
+                pass
+
             save()
             await update.message.reply_text("🗑 O‘chirildi")
         else:
