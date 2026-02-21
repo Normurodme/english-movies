@@ -25,16 +25,12 @@ VIP_PLANS = {
     "3month": (300,90)
 }
 
-# ===== FILES =====
-
 DB_FILE = "/data/db.json"
 USERS_FILE = "/data/users.json"
 STATS_FILE = "/data/stats.json"
 VIP_FILE="/data/vip.json"
 
 os.makedirs("/data",exist_ok=True)
-
-# ================= LOAD =================
 
 DB=json.load(open(DB_FILE)) if os.path.exists(DB_FILE) else {"movies":{}, "next":1}
 USERS=json.load(open(USERS_FILE)) if os.path.exists(USERS_FILE) else []
@@ -122,16 +118,14 @@ async def info(update:Update,context:ContextTypes.DEFAULT_TYPE):
         "• No ads"
     )
 
-# ================= VIP MENU =================
+# ================= VIP =================
 
 async def vip(update:Update,context:ContextTypes.DEFAULT_TYPE):
-
     kb=InlineKeyboardMarkup([
         [InlineKeyboardButton("⭐ 1 hafta — 35",callback_data="buy_week")],
         [InlineKeyboardButton("⭐ 1 oy — 125",callback_data="buy_month")],
         [InlineKeyboardButton("⭐ 3 oy — 300",callback_data="buy_3month")]
     ])
-
     await update.message.reply_text("VIP tarif tanlang:",reply_markup=kb)
     await info(update,context)
 
@@ -151,7 +145,6 @@ async def callbacks(update:Update, context:ContextTypes.DEFAULT_TYPE):
 
     if q.data=="movie":
         context.user_data["upload"]="movie"
-        context.user_data["vipup"]=False
         await q.message.edit_text("🎬 Kino yuboring")
 
     if q.data=="serial":
@@ -159,7 +152,6 @@ async def callbacks(update:Update, context:ContextTypes.DEFAULT_TYPE):
         SERIAL_CODE=str(DB["next"])
         SERIAL_PART=1
         context.user_data["upload"]="serial"
-        context.user_data["vipup"]=False
         await q.message.edit_text("📺 Serial yuboring\nTugatish: /done")
 
     if q.data.startswith("buy_"):
@@ -175,19 +167,6 @@ async def callbacks(update:Update, context:ContextTypes.DEFAULT_TYPE):
             currency="XTR",
             prices=[LabeledPrice("VIP",price)]
         )
-
-# ================= VIP DOWNLOAD =================
-
-async def vipdownload(update:Update,context:ContextTypes.DEFAULT_TYPE):
-    if update.effective_user.id!=ADMIN_ID:
-        return
-
-    kb=InlineKeyboardMarkup([[
-        InlineKeyboardButton("🎬 Kino",callback_data="vipmovie"),
-        InlineKeyboardButton("📺 Serial",callback_data="vipserial")
-    ]])
-
-    await update.message.reply_text("VIP yuklash:",reply_markup=kb)
 
 # ================= PAYMENT =================
 
@@ -283,11 +262,9 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
     uid=update.effective_user.id
     text=update.message.text.strip() if update.message.text else None
 
-    # ===== ADMIN TEXT IGNORE =====
     if uid==ADMIN_ID and text and text.isdigit():
         return
 
-    # ADS
     if uid==ADMIN_ID and context.user_data.get("ads"):
         context.user_data["ads"]=False
         s=0
@@ -300,10 +277,8 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"✅ Yuborildi: {s}")
         return
 
-    # DELETE
     if uid==ADMIN_ID and context.user_data.get("del"):
         context.user_data["del"]=False
-
         if text in DB["movies"]:
             del DB["movies"][text]
             save()
@@ -312,7 +287,6 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text("Topilmadi")
         return
 
-    # UPLOAD
     if uid==ADMIN_ID and context.user_data.get("upload") and (update.message.video or update.message.document):
 
         if context.user_data["upload"]=="movie":
@@ -329,7 +303,6 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"✅ Saqlandi\nKod: {code}")
         return
 
-    # USER REQUEST
     if not await check_sub(uid,context):
         await sub_msg(update)
         return
@@ -337,7 +310,6 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
     if not text:
         return
 
-    # RATE LIMIT
     now=time.time()
     if uid in LAST_REQ and now-LAST_REQ[uid]<REQUEST_DELAY:
         await update.message.reply_text("⏳ Kuting...")
@@ -361,12 +333,14 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
 
 # ================= RUN =================
 
+async def post_init(app):
+    asyncio.create_task(vip_checker(app))
+
 def main():
-    app=ApplicationBuilder().token(TOKEN).build()
+    app=ApplicationBuilder().token(TOKEN).post_init(post_init).build()
 
     app.add_handler(CommandHandler("start",start))
     app.add_handler(CommandHandler("download",download))
-    app.add_handler(CommandHandler("vipdownload",vipdownload))
     app.add_handler(CommandHandler("done",done))
     app.add_handler(CommandHandler("delete",delete_cmd))
     app.add_handler(CommandHandler("ads",ads))
@@ -379,8 +353,6 @@ def main():
 
     app.add_handler(CallbackQueryHandler(callbacks))
     app.add_handler(MessageHandler(filters.ALL,msg))
-
-    app.create_task(vip_checker(app))
 
     print("Bot running...")
     app.run_polling()
