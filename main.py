@@ -198,6 +198,7 @@ async def callbacks(update:Update,context:ContextTypes.DEFAULT_TYPE):
             await q.answer("Kanalga kiring",show_alert=True)
 
     if q.data=="movie":
+        SERIAL_MODE=False
         context.user_data["upload"]="movie"
         context.user_data["vipup"]=False
         await q.message.edit_text("🎬 Kino yuboring")
@@ -211,6 +212,7 @@ async def callbacks(update:Update,context:ContextTypes.DEFAULT_TYPE):
         await q.message.edit_text("📺 Serial yuboring\n/done tugatadi")
 
     if q.data=="vipmovie":
+        SERIAL_MODE=False
         context.user_data["upload"]="movie"
         context.user_data["vipup"]=True
         await q.message.edit_text("🔒 VIP kino yuboring")
@@ -347,7 +349,8 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
         DB["movies"][code]=sent.message_id
 
         if context.user_data.get("vipup"):
-            DB["vip_only"].append(code)
+            if code not in DB["vip_only"]:
+                DB["vip_only"].append(code)
 
         save()
         await update.message.reply_text(f"✅ Saqlandi: {code}")
@@ -372,7 +375,10 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
         return
 
     if text in DB.get("vip_only",[]) and not is_vip(uid):
-        await update.message.reply_text("🔒 Bu kino faqat VIP uchun")
+        await update.message.reply_text(
+            "🔒 <b>Bu kino faqat VIP foydalanuvchilar uchun</b>\n\nVIP olish uchun 👉 /vip",
+            parse_mode="HTML"
+        )
         return
 
     STATS["requests"].append(now)
