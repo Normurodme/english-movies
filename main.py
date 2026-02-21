@@ -417,10 +417,11 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(TXT_NOT_FOUND)
         return
 
-    # VIP PROTECTION
-    if text in DB.get("vip_only",[]) and not is_vip(uid):
-        await update.message.reply_text(TXT_VIP_ONLY)
-        return
+    # VIP PROTECTION (UPDATED ONLY THIS LOGIC)
+    if text in DB.get("vip_only",[]):
+        if str(uid) not in VIP:
+            await update.message.reply_text(TXT_VIP_ONLY)
+            return
 
     STATS["requests"].append(now)
     STATS["users"].append((uid,now))
