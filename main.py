@@ -15,12 +15,8 @@ WARNING_TEXT = (
     "📥 Please download or save it."
 )
 
-# ========= PERSISTENT STORAGE =========
-DATA_DIR = "/data"
-os.makedirs(DATA_DIR, exist_ok=True)
-
-DB_FILE = f"{DATA_DIR}/db.json"
-USERS_FILE = f"{DATA_DIR}/users.json"
+DB_FILE = "db.json"
+USERS_FILE = "users.json"
 
 # ================= LOAD =================
 
@@ -181,6 +177,11 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
     uid=update.effective_user.id
     text=update.message.text.strip() if update.message.text else None
 
+    # AUTO SAVE USER
+    if uid not in USERS:
+        USERS.append(uid)
+        save()
+
     # ADS
     if uid==ADMIN_ID and context.user_data.get("ads"):
         context.user_data["ads"]=False
@@ -215,10 +216,11 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
             code=f"{SERIAL_CODE}.{SERIAL_PART}"
             SERIAL_PART+=1
 
-        sent=await context.bot.copy_message(
+        file = update.message.video or update.message.document
+
+        sent = await context.bot.send_video(
             STORAGE_CHANNEL_ID,
-            update.effective_chat.id,
-            update.message.message_id,
+            file.file_id,
             caption=f"Code: {code}"
         )
 
