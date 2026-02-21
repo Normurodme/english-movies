@@ -273,6 +273,26 @@ async def delete_cmd(update:Update,context:ContextTypes.DEFAULT_TYPE):
     context.user_data["del"]=True
     await update.message.reply_text("🗑 Kod yuboring")
 
+# ================= STATS =================
+
+async def stats(update:Update,context:ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id!=ADMIN_ID:
+        return
+
+    now=time.time()
+    day=86400
+
+    users_24=set([u for u,t in STATS["users"] if now-t<day])
+    req_24=len([1 for t in STATS["requests"] if now-t<day])
+
+    await update.message.reply_text(
+        f"👥 Users: {len(USERS)}\n"
+        f"🎬 Movies: {len(DB['movies'])}\n"
+        f"🔢 Next: {DB['next']}\n\n"
+        f"🕒 24h users: {len(users_24)}\n"
+        f"📥 24h requests: {req_24}"
+    )
+
 # ================= PAYMENT =================
 
 async def precheckout(update:Update,context:ContextTypes.DEFAULT_TYPE):
