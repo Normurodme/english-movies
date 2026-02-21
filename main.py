@@ -32,10 +32,16 @@ VIP_FILE="/data/vip.json"
 
 os.makedirs("/data",exist_ok=True)
 
-DB=json.load(open(DB_FILE)) if os.path.exists(DB_FILE) else {"movies":{}, "next":1, "vip_only":[]}
-USERS=json.load(open(USERS_FILE)) if os.path.exists(USERS_FILE) else []
-STATS=json.load(open(STATS_FILE)) if os.path.exists(STATS_FILE) else {"requests":[], "users":[]}
-VIP=json.load(open(VIP_FILE)) if os.path.exists(VIP_FILE) else {}
+def load(path,default):
+    if os.path.exists(path):
+        with open(path) as f:
+            return json.load(f)
+    return default
+
+DB=load(DB_FILE,{"movies":{}, "next":1, "vip_only":[]})
+USERS=load(USERS_FILE,[])
+STATS=load(STATS_FILE,{"requests":[], "users":[]})
+VIP=load(VIP_FILE,{})
 
 SERIAL_MODE=False
 SERIAL_CODE=None
@@ -54,7 +60,8 @@ def is_vip(uid):
     exp=VIP.get(str(uid))
     if not exp:
         return False
-    if datetime.utcnow()>datetime.fromisoformat(exp):
+    dt=datetime.fromisoformat(exp)
+    if datetime.utcnow()>dt:
         del VIP[str(uid)]
         save()
         return False
@@ -63,18 +70,21 @@ def is_vip(uid):
 async def vip_checker(app):
     while True:
         now=datetime.utcnow()
-        remove=[]
+        expired=[]
         for uid,exp in VIP.items():
             if now>datetime.fromisoformat(exp):
-                try:
-                    await app.bot.send_message(int(uid),"⏳ VIP obunangiz tugadi.\nYangilash: /vip")
-                except:
-                    pass
-                remove.append(uid)
-        for u in remove:
-            del VIP[u]
-        if remove:
+                expired.append(uid)
+
+        for uid in expired:
+            try:
+                await app.bot.send_message(int(uid),"⏳ VIP obunangiz tugadi.\nYangilash: /vip")
+            except:
+                pass
+            del VIP[uid]
+
+        if expired:
             save()
+
         await asyncio.sleep(3600)
 
 # ================= SUB =================
@@ -91,7 +101,7 @@ async def sub_msg(update):
         [InlineKeyboardButton("📢 Kanalga o'tish",url="https://t.me/moviesbyone")],
         [InlineKeyboardButton("✅ Tekshirish",callback_data="check")]
     ])
-    await update.message.reply_text("❗ Botdan foydalanish uchun kanalga a’zo bo‘ling",reply_markup=kb)
+    await update.message.reply_text("❗ Kanalga a’zo bo‘ling",reply_markup=kb)
 
 # ================= START =================
 
@@ -236,7 +246,6 @@ async def vipdownload(update:Update,context:ContextTypes.DEFAULT_TYPE):
 
 async def done(update:Update,context:ContextTypes.DEFAULT_TYPE):
     global SERIAL_MODE
-
     if update.effective_user.id!=ADMIN_ID:
         return
 
@@ -263,23 +272,6 @@ async def delete_cmd(update:Update,context:ContextTypes.DEFAULT_TYPE):
         return
     context.user_data["del"]=True
     await update.message.reply_text("🗑 Kod yuboring")
-
-# ================= STATS =================
-
-async def stats(update:Update,context:ContextTypes.DEFAULT_TYPE):
-    if update.effective_user.id!=ADMIN_ID:
-        return
-
-    now=time.time()
-    day=86400
-
-    users_24=set([u for u,t in STATS["users"] if now-t<day])
-    req_24=len([1 for t in STATS["requests"] if now-t<day])
-
-    await update.message.reply_text(
-        f"👥 Users: {len(USERS)}\n🎬 Movies: {len(DB['movies'])}\n🔢 Next: {DB['next']}\n\n"
-        f"🕒 24h users: {len(users_24)}\n📥 24h requests: {req_24}"
-    )
 
 # ================= PAYMENT =================
 
@@ -338,9 +330,8 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
         sent=await context.bot.copy_message(STORAGE_CHANNEL_ID,update.effective_chat.id,update.message.message_id)
         DB["movies"][code]=sent.message_id
 
-        if context.user_data.get("vipup"):
-            if code not in DB["vip_only"]:
-                DB["vip_only"].append(code)
+        if context.user_data.get("vipup") and code not in DB["vip_only"]:
+            DB["vip_only"].append(code)
 
         save()
         await update.message.reply_text(f"✅ Saqlandi\nKod: {code}")
