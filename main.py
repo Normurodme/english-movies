@@ -156,15 +156,6 @@ async def start(update:Update,context:ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(TXT_START,parse_mode="HTML")
 
 # =========================================
-# DELETE COMMAND (qo‘shildi)
-# =========================================
-
-async def delete_cmd(update:Update,context:ContextTypes.DEFAULT_TYPE):
-    if update.effective_user.id!=ADMIN_ID: return
-    context.user_data["delete_mode"]=True
-    await update.message.reply_text("🗑 O‘chirish uchun kino kodini yuboring")
-
-# =========================================
 # VIP BUY PANEL
 # =========================================
 
@@ -351,18 +342,60 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
 
     if text and text.startswith("/"): return
 
-    # DELETE MODE
-    if uid==ADMIN_ID and context.user_data.get("delete_mode"):
+    # ADS SEND
+    if uid==ADMIN_ID and context.user_data.get("ads"):
         context.user_data.clear()
+        sent=0
+        for u in USERS:
+            if u==ADMIN_ID: continue
+            if is_vip(u): continue
+            try:
+                await update.message.copy(u)
+                sent+=1
+            except:
+                pass
+        await update.message.reply_text(f"✅ Yuborildi: {sent}")
+        return
 
-        if text in DB["movies"]:
-            del DB["movies"][text]
-            if text in DB["vip_only"]:
-                DB["vip_only"].remove(text)
-            save()
-            await update.message.reply_text(TXT_DELETED)
+    # NEXT SET
+    if uid==ADMIN_ID and context.user_data.get("setnext"):
+        context.user_data.clear()
+        if not text.isdigit():
+            await update.message.reply_text("Faqat raqam yubor")
+            return
+        DB["next"]=int(text)
+        save()
+        await update.message.reply_text(TXT_UPDATED.format(text))
+        return
+
+    # UPLOAD
+    if uid==ADMIN_ID and context.user_data.get("upload") and (update.message.video or update.message.document):
+
+        if context.user_data["upload"]=="movie":
+            code=str(DB["next"])
+            DB["next"]+=1
         else:
-            await update.message.reply_text(TXT_NOT_FOUND)
+            code=f"{SERIAL_CODE}.{SERIAL_PART}"
+            SERIAL_PART+=1
+
+        caption = f"🔒Code: {code}" if context.user_data.get("vip") else f"Code: {code}"
+
+        sent=await context.bot.copy_message(
+            STORAGE_CHANNEL_ID,
+            update.effective_chat.id,
+            update.message.message_id,
+            caption=caption
+        )
+
+        DB["movies"][code]=sent.message_id
+
+        if context.user_data.get("vip"):
+            DB["vip_only"].append(code)
+
+        context.user_data.clear()
+        save()
+
+        await update.message.reply_text(f"{TXT_DONE}: {code}")
         return
 
     # SUB CHECK
@@ -431,7 +464,6 @@ def main():
     app.add_handler(CommandHandler("vips",vips))
     app.add_handler(CommandHandler("download",download))
     app.add_handler(CommandHandler("vipdownload",vipdownload))
-    app.add_handler(CommandHandler("delete",delete_cmd))
     app.add_handler(CommandHandler("ndelete",ndelete))
     app.add_handler(CommandHandler("ads",ads))
     app.add_handler(CommandHandler("stats",stats))
