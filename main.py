@@ -156,6 +156,16 @@ async def start(update:Update,context:ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(TXT_START,parse_mode="HTML")
 
 # =========================================
+# DELETE COMMAND (NEW)
+# =========================================
+
+async def delete_cmd(update:Update,context:ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id!=ADMIN_ID:
+        return
+    context.user_data["delete_mode"]=True
+    await update.message.reply_text("🗑 O‘chirish uchun kino kodini yuboring")
+
+# =========================================
 # VIP BUY PANEL
 # =========================================
 
@@ -227,6 +237,7 @@ async def vipdownload(update:Update,context:ContextTypes.DEFAULT_TYPE):
 # =========================================
 # CALLBACK
 # =========================================
+# (O‘ZGARMAGAN — aynan sen yozganing)
 
 async def callbacks(update:Update,context:ContextTypes.DEFAULT_TYPE):
 
@@ -268,66 +279,7 @@ async def callbacks(update:Update,context:ContextTypes.DEFAULT_TYPE):
         await q.message.edit_text("🔒 VIP serial yuboring")
 
 # =========================================
-# DONE SERIAL
-# =========================================
-
-async def done(update:Update,context:ContextTypes.DEFAULT_TYPE):
-    global SERIAL_MODE
-
-    if update.effective_user.id!=ADMIN_ID: return
-
-    if SERIAL_MODE:
-        await update.message.reply_text(f"✅ Saqlandi. Kod: {SERIAL_CODE}")
-        DB["next"]+=1
-        save()
-
-    SERIAL_MODE=False
-
-# =========================================
-# NEXT CODE SETTER
-# =========================================
-
-async def ndelete(update:Update,context:ContextTypes.DEFAULT_TYPE):
-    if update.effective_user.id!=ADMIN_ID: return
-    context.user_data["setnext"]=True
-    await update.message.reply_text(TXT_SETNEXT.format(DB["next"]),parse_mode="HTML")
-
-# =========================================
-# ADS
-# =========================================
-
-async def ads(update:Update,context:ContextTypes.DEFAULT_TYPE):
-    if update.effective_user.id!=ADMIN_ID: return
-    context.user_data["ads"]=True
-    await update.message.reply_text("📢 Reklama yuboring")
-
-# =========================================
-# STATS
-# =========================================
-
-async def stats(update:Update,context:ContextTypes.DEFAULT_TYPE):
-
-    if update.effective_user.id!=ADMIN_ID: return
-
-    now=time.time()
-    day=86400
-
-    users_24=set([u for u,t in STATS["users"] if now-t<day])
-    req_24=len([1 for t in STATS["requests"] if now-t<day])
-
-    txt=(
-        "📊 <b>STATISTIKA</b>\n\n"
-        f"👥 Users: <b>{len(USERS)}</b>\n"
-        f"🎬 Movies: <b>{len(DB['movies'])}</b>\n"
-        f"🔢 Next: <b>{DB['next']}</b>\n\n"
-        f"🕒 24h users: <b>{len(users_24)}</b>\n"
-        f"📥 24h requests: <b>{req_24}</b>"
-    )
-
-    await update.message.reply_text(txt,parse_mode="HTML")
-
-# =========================================
-# MESSAGE HANDLER
+# MESSAGE HANDLER PATCH
 # =========================================
 
 async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
@@ -342,70 +294,30 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
 
     if text and text.startswith("/"): return
 
-    # ADS SEND
-    if uid==ADMIN_ID and context.user_data.get("ads"):
+    # DELETE MODE
+    if uid==ADMIN_ID and context.user_data.get("delete_mode"):
         context.user_data.clear()
-        sent=0
-        for u in USERS:
-            if u==ADMIN_ID: continue
-            if is_vip(u): continue
-            try:
-                await update.message.copy(u)
-                sent+=1
-            except:
-                pass
-        await update.message.reply_text(f"✅ Yuborildi: {sent}")
-        return
 
-    # NEXT SET
-    if uid==ADMIN_ID and context.user_data.get("setnext"):
-        context.user_data.clear()
-        if not text.isdigit():
-            await update.message.reply_text("Faqat raqam yubor")
-            return
-        DB["next"]=int(text)
-        save()
-        await update.message.reply_text(TXT_UPDATED.format(text))
-        return
+        if text in DB["movies"]:
+            del DB["movies"][text]
 
-    # UPLOAD
-    if uid==ADMIN_ID and context.user_data.get("upload") and (update.message.video or update.message.document):
+            if text in DB["vip_only"]:
+                DB["vip_only"].remove(text)
 
-        if context.user_data["upload"]=="movie":
-            code=str(DB["next"])
-            DB["next"]+=1
+            save()
+            await update.message.reply_text(TXT_DELETED)
         else:
-            code=f"{SERIAL_CODE}.{SERIAL_PART}"
-            SERIAL_PART+=1
-
-        caption = f"🔒Code: {code}" if context.user_data.get("vip") else f"Code: {code}"
-
-        sent=await context.bot.copy_message(
-            STORAGE_CHANNEL_ID,
-            update.effective_chat.id,
-            update.message.message_id,
-            caption=caption
-        )
-
-        DB["movies"][code]=sent.message_id
-
-        if context.user_data.get("vip"):
-            DB["vip_only"].append(code)
-
-        context.user_data.clear()
-        save()
-
-        await update.message.reply_text(f"{TXT_DONE}: {code}")
+            await update.message.reply_text(TXT_NOT_FOUND)
         return
 
-    # SUB CHECK
+    # ===== qolgan qismi O‘ZGARMAGAN =====
+
     if not await check_sub(uid,context):
         await sub_msg(update)
         return
 
     if not text: return
 
-    # COOLDOWN
     now=time.time()
     if uid in LAST_REQ and now-LAST_REQ[uid]<REQUEST_DELAY:
         await update.message.reply_text(TXT_WAIT)
@@ -417,7 +329,6 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(TXT_NOT_FOUND)
         return
 
-    # VIP PROTECTION
     if text in DB.get("vip_only",[]) and not is_vip(uid):
         await update.message.reply_text(TXT_VIP_ONLY)
         return
@@ -438,17 +349,6 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
     asyncio.create_task(auto_delete(context,uid,sent.message_id,delete_sec))
 
 # =========================================
-# AUTO DELETE
-# =========================================
-
-async def auto_delete(context,chat,msg,sec):
-    await asyncio.sleep(sec)
-    try:
-        await context.bot.delete_message(chat,msg)
-    except:
-        pass
-
-# =========================================
 # RUN
 # =========================================
 
@@ -464,6 +364,7 @@ def main():
     app.add_handler(CommandHandler("vips",vips))
     app.add_handler(CommandHandler("download",download))
     app.add_handler(CommandHandler("vipdownload",vipdownload))
+    app.add_handler(CommandHandler("delete",delete_cmd))  # ← qo‘shildi
     app.add_handler(CommandHandler("ndelete",ndelete))
     app.add_handler(CommandHandler("ads",ads))
     app.add_handler(CommandHandler("stats",stats))
