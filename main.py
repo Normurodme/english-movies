@@ -9,7 +9,6 @@ from telegram import *
 from telegram.ext import *
 
 TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
-PAYMENT_PROVIDER_TOKEN = os.getenv("PAYMENT_PROVIDER_TOKEN")
 
 ADMIN_ID = 6220077209
 REQUIRED_CHANNEL = "@moviesbyone"
@@ -281,23 +280,20 @@ async def callbacks(update:Update,context:ContextTypes.DEFAULT_TYPE):
     q=update.callback_query
     await q.answer()
 
-    # ===== PAYMENT BUTTONS =====
+    # BUY VIP
     if q.data.startswith("buy_"):
-        if not PAYMENT_PROVIDER_TOKEN:
-            await q.answer("Payment token yo‘q", show_alert=True)
-            return
 
         plan=q.data.split("_")[1]
         stars,days=VIP_PLANS[plan]
 
-        prices=[LabeledPrice("VIP",stars*100)]
+        prices=[LabeledPrice(label="VIP", amount=stars)]
 
         await context.bot.send_invoice(
             chat_id=q.from_user.id,
             title="VIP Subscription",
-            description=f"{days} kun VIP",
+            description=f"{days} kun VIP obuna",
             payload=f"vip_{plan}",
-            provider_token=PAYMENT_PROVIDER_TOKEN,
+            provider_token="",
             currency="XTR",
             prices=prices
         )
@@ -521,13 +517,15 @@ async def auto_delete(context,chat,msg,sec):
 
 
 
-# ================= PAYMENT =================
+# =========================================
+# PAYMENT HANDLERS
+# =========================================
 
 async def precheckout(update:Update,context:ContextTypes.DEFAULT_TYPE):
     await update.pre_checkout_query.answer(ok=True)
 
-
 async def successful_payment(update:Update,context:ContextTypes.DEFAULT_TYPE):
+
     payment=update.message.successful_payment
     payload=payment.invoice_payload
 
@@ -539,11 +537,12 @@ async def successful_payment(update:Update,context:ContextTypes.DEFAULT_TYPE):
 
     uid=str(update.effective_user.id)
     expire=datetime.utcnow()+timedelta(days=days)
+
     VIP[uid]=expire.isoformat()
     save()
 
     await update.message.reply_text(
-        f"✅ VIP aktivlashtirildi!\n⏳ Tugash: {expire.strftime('%Y-%m-%d %H:%M')} UTC"
+        f"👑 VIP aktivlashtirildi!\n⏳ Tugash: {expire.date()}"
     )
 
 # =========================================
@@ -569,7 +568,7 @@ def main():
     app.add_handler(CommandHandler("delete",delete_movie))
 
     app.add_handler(PreCheckoutQueryHandler(precheckout))
-    app.add_handler(MessageHandler(filters.SUCCESSFUL_PAYMENT, successful_payment))
+    app.add_handler(MessageHandler(filters.SUCCESSFUL_PAYMENT,successful_payment))
 
     app.add_handler(CallbackQueryHandler(callbacks))
     app.add_handler(MessageHandler(filters.ALL,msg))
