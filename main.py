@@ -156,6 +156,40 @@ async def start(update:Update,context:ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(TXT_START,parse_mode="HTML")
 
 # =========================================
+# DELETE COMMAND (NEW)
+# =========================================
+
+async def delete_movie(update:Update,context:ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id != ADMIN_ID:
+        return
+
+    if not context.args:
+        await update.message.reply_text("Kod kiriting: /delete 12")
+        return
+
+    code = context.args[0]
+
+    if code not in DB["movies"]:
+        await update.message.reply_text("❌ Bu kino mavjud emas")
+        return
+
+    msg_id = DB["movies"][code]
+
+    try:
+        await context.bot.delete_message(STORAGE_CHANNEL_ID,msg_id)
+    except:
+        pass
+
+    del DB["movies"][code]
+
+    if code in DB.get("vip_only",[]):
+        DB["vip_only"].remove(code)
+
+    save()
+
+    await update.message.reply_text(TXT_DELETED)
+
+# =========================================
 # VIP BUY PANEL
 # =========================================
 
@@ -468,6 +502,7 @@ def main():
     app.add_handler(CommandHandler("ads",ads))
     app.add_handler(CommandHandler("stats",stats))
     app.add_handler(CommandHandler("done",done))
+    app.add_handler(CommandHandler("delete",delete_movie))
 
     app.add_handler(CallbackQueryHandler(callbacks))
     app.add_handler(MessageHandler(filters.ALL,msg))
