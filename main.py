@@ -156,7 +156,7 @@ async def start(update:Update,context:ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(TXT_START,parse_mode="HTML")
 
 # =========================================
-# DELETE COMMAND (NEW)
+# DELETE COMMAND (YANGI QO‘SHILDI)
 # =========================================
 
 async def delete_cmd(update:Update,context:ContextTypes.DEFAULT_TYPE):
@@ -237,7 +237,7 @@ async def vipdownload(update:Update,context:ContextTypes.DEFAULT_TYPE):
 # =========================================
 # CALLBACK
 # =========================================
-# (O‘ZGARMAGAN — aynan sen yozganing)
+# (BU QISM SENIKI — O‘ZGARTIRILMAGAN)
 
 async def callbacks(update:Update,context:ContextTypes.DEFAULT_TYPE):
 
@@ -279,7 +279,7 @@ async def callbacks(update:Update,context:ContextTypes.DEFAULT_TYPE):
         await q.message.edit_text("🔒 VIP serial yuboring")
 
 # =========================================
-# MESSAGE HANDLER PATCH
+# MESSAGE HANDLER (DELETE PATCH QO‘SHILDI)
 # =========================================
 
 async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
@@ -310,7 +310,7 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text(TXT_NOT_FOUND)
         return
 
-    # ===== qolgan qismi O‘ZGARMAGAN =====
+    # ===== QOLGAN QISM O‘ZGARMAGAN =====
 
     if not await check_sub(uid,context):
         await sub_msg(update)
@@ -347,6 +347,17 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
 
     delete_sec=86400 if is_vip(uid) else 900
     asyncio.create_task(auto_delete(context,uid,sent.message_id,delete_sec))
+
+# =========================================
+# AUTO DELETE
+# =========================================
+
+async def auto_delete(context,chat,msg,sec):
+    await asyncio.sleep(sec)
+    try:
+        await context.bot.delete_message(chat,msg)
+    except:
+        pass
 
 # =========================================
 # RUN
