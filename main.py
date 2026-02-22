@@ -1,4 +1,3 @@
-
 import os
 import json
 import asyncio
@@ -9,6 +8,7 @@ from telegram import *
 from telegram.ext import *
 
 TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+PAYMENT_TOKEN = os.getenv("PAYMENT_PROVIDER_TOKEN")
 
 ADMIN_ID = 6220077209
 REQUIRED_CHANNEL = "@moviesbyone"
@@ -286,6 +286,29 @@ async def callbacks(update:Update,context:ContextTypes.DEFAULT_TYPE):
         else:
             await q.answer("Kanalga kiring",show_alert=True)
 
+    
+    # ===== PAYMENT BUTTONS =====
+    if q.data.startswith("buy_"):
+        if not PAYMENT_TOKEN:
+            await q.answer("Payment system sozlanmagan", show_alert=True)
+            return
+
+        plan=q.data.split("_")[1]
+        stars,days = VIP_PLANS[plan]
+
+        prices=[LabeledPrice(label=f"VIP {plan}", amount=stars*100)]
+
+        await context.bot.send_invoice(
+            chat_id=q.from_user.id,
+            title="VIP Subscription",
+            description=f"{days} kun VIP obuna",
+            payload=f"vip_{plan}",
+            provider_token=PAYMENT_TOKEN,
+            currency="XTR",
+            prices=prices
+        )
+        return
+
     if q.data=="movie":
         context.user_data["upload"]="movie"
         context.user_data["vip"]=False
@@ -303,26 +326,6 @@ async def callbacks(update:Update,context:ContextTypes.DEFAULT_TYPE):
         context.user_data["upload"]="movie"
         context.user_data["vip"]=True
         await q.message.edit_text("🔒 VIP kino yuboring")
-
-
-    # VIP PURCHASE BUTTONS
-    if q.data.startswith("buy_"):
-        plan=q.data.split("_")[1]
-        if plan not in VIP_PLANS:
-            await q.answer("Xatolik",show_alert=True)
-            return
-
-        stars,days = VIP_PLANS[plan]
-        uid=str(q.from_user.id)
-
-        expire = datetime.utcnow()+timedelta(days=days)
-        VIP[uid]=expire.isoformat()
-        save()
-
-        await q.message.edit_text(
-            f"✅ VIP aktivlashtirildi!\n\n⏳ Tugash: {expire.strftime('%Y-%m-%d %H:%M')} UTC"
-        )
-        return
 
     if q.data=="vipserial":
         SERIAL_MODE=True
@@ -515,6 +518,31 @@ async def auto_delete(context,chat,msg,sec):
     except:
         pass
 
+
+
+# =========================================
+# SUCCESSFUL PAYMENT
+# =========================================
+
+async def successful_payment(update:Update,context:ContextTypes.DEFAULT_TYPE):
+    payment=update.message.successful_payment
+    payload=payment.invoice_payload
+
+    if not payload.startswith("vip_"):
+        return
+
+    plan=payload.split("_")[1]
+    stars,days = VIP_PLANS[plan]
+
+    uid=str(update.effective_user.id)
+    expire=datetime.utcnow()+timedelta(days=days)
+    VIP[uid]=expire.isoformat()
+    save()
+
+    await update.message.reply_text(
+        f"✅ VIP aktivlashtirildi!\n⏳ Tugash: {expire.strftime('%Y-%m-%d %H:%M')} UTC"
+    )
+
 # =========================================
 # RUN
 # =========================================
@@ -536,6 +564,8 @@ def main():
     app.add_handler(CommandHandler("stats",stats))
     app.add_handler(CommandHandler("done",done))
     app.add_handler(CommandHandler("delete",delete_movie))
+
+    app.add_handler(MessageHandler(filters.SUCCESSFUL_PAYMENT, successful_payment))
 
     app.add_handler(CallbackQueryHandler(callbacks))
     app.add_handler(MessageHandler(filters.ALL,msg))
