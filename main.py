@@ -68,7 +68,7 @@ STATS_FILE="/data/stats.json"
 
 DB=load(DB_FILE,{"movies":{}, "next":1, "vip_only":[]})
 
-# auto-fix missing vip_only
+# ensure vip_only exists
 if "vip_only" not in DB:
     DB["vip_only"]=[]
 USERS=load(USERS_FILE,[])
@@ -256,9 +256,7 @@ async def download(update:Update,context:ContextTypes.DEFAULT_TYPE):
 
 async def vipdownload(update:Update,context:ContextTypes.DEFAULT_TYPE):
 
-    uid=update.effective_user.id
-    if uid!=ADMIN_ID and not is_vip(uid):
-        await update.message.reply_text("❌ Only VIP users can upload VIP movies")
+    if update.effective_user.id!=ADMIN_ID:
         return
 
     kb=InlineKeyboardMarkup([
@@ -492,16 +490,6 @@ async def auto_delete(context,chat,msg,sec):
     except:
         pass
 
-
-async def info(update:Update,context:ContextTypes.DEFAULT_TYPE):
-    text = (
-        "⭐ VIP Benefits:\n\n"
-        "1) Movies stay for 24 hours\n"
-        "2) Access to VIP movies and series\n"
-        "3) No advertisement messages"
-    )
-    await update.message.reply_text(text)
-
 # =========================================
 # RUN
 # =========================================
@@ -515,7 +503,6 @@ def main():
 
     app.add_handler(CommandHandler("start",start))
     app.add_handler(CommandHandler("vip",vip))
-    app.add_handler(CommandHandler("info",info))
     app.add_handler(CommandHandler("vips",vips))
     app.add_handler(CommandHandler("download",download))
     app.add_handler(CommandHandler("vipdownload",vipdownload))
