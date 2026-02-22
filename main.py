@@ -1,3 +1,4 @@
+
 import os
 import json
 import asyncio
@@ -280,21 +281,21 @@ async def callbacks(update:Update,context:ContextTypes.DEFAULT_TYPE):
     q=update.callback_query
     await q.answer()
 
-    # ===== VIP PAYMENT BUTTONS =====
+    # ===== PAYMENT BUTTONS =====
     if q.data.startswith("buy_"):
         if not PAYMENT_PROVIDER_TOKEN:
-            await q.answer("Payment sozlanmagan", show_alert=True)
+            await q.answer("Payment token yo‘q", show_alert=True)
             return
 
-        plan = q.data.split("_")[1]
-        stars, days = VIP_PLANS[plan]
+        plan=q.data.split("_")[1]
+        stars,days=VIP_PLANS[plan]
 
-        prices=[LabeledPrice(label=f"VIP {plan}", amount=stars*100)]
+        prices=[LabeledPrice("VIP",stars*100)]
 
         await context.bot.send_invoice(
             chat_id=q.from_user.id,
             title="VIP Subscription",
-            description=f"{days} kun VIP obuna",
+            description=f"{days} kun VIP",
             payload=f"vip_{plan}",
             provider_token=PAYMENT_PROVIDER_TOKEN,
             currency="XTR",
@@ -520,26 +521,24 @@ async def auto_delete(context,chat,msg,sec):
 
 
 
-# =========================================
-# PAYMENT HANDLERS
-# =========================================
+# ================= PAYMENT =================
 
 async def precheckout(update:Update,context:ContextTypes.DEFAULT_TYPE):
     await update.pre_checkout_query.answer(ok=True)
 
 
 async def successful_payment(update:Update,context:ContextTypes.DEFAULT_TYPE):
-    payment = update.message.successful_payment
-    payload = payment.invoice_payload
+    payment=update.message.successful_payment
+    payload=payment.invoice_payload
 
     if not payload.startswith("vip_"):
         return
 
-    plan = payload.split("_")[1]
-    stars,days = VIP_PLANS[plan]
+    plan=payload.split("_")[1]
+    stars,days=VIP_PLANS[plan]
 
     uid=str(update.effective_user.id)
-    expire = datetime.utcnow()+timedelta(days=days)
+    expire=datetime.utcnow()+timedelta(days=days)
     VIP[uid]=expire.isoformat()
     save()
 
