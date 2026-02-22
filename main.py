@@ -250,6 +250,12 @@ async def download(update:Update,context:ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("📤 Yuklash turini tanlang:",reply_markup=kb)
 
 async def vipdownload(update:Update,context:ContextTypes.DEFAULT_TYPE):
+
+    uid = update.effective_user.id
+    if not is_vip(uid) and uid != ADMIN_ID:
+        await update.message.reply_text("❌ Bu bo‘lim faqat VIP foydalanuvchilar uchun\n\n👑 VIP olish: /vip")
+        return
+
     if update.effective_user.id!=ADMIN_ID: return
 
     kb=InlineKeyboardMarkup([
