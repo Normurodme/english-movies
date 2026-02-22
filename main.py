@@ -66,6 +66,10 @@ VIP_FILE="/data/vip.json"
 STATS_FILE="/data/stats.json"
 
 DB=load(DB_FILE,{"movies":{}, "next":1, "vip_only":[]})
+# ensure vip_only exists
+if "vip_only" not in DB:
+    DB["vip_only"] = []
+
 USERS=load(USERS_FILE,[])
 VIP=load(VIP_FILE,{})
 STATS=load(STATS_FILE,{"requests":[], "users":[]})
@@ -430,6 +434,7 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
         DB["movies"][code]=sent.message_id
 
         if context.user_data.get("vip"):
+            if code not in DB["vip_only"]:
             DB["vip_only"].append(code)
 
         context.user_data.clear()
