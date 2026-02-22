@@ -304,6 +304,26 @@ async def callbacks(update:Update,context:ContextTypes.DEFAULT_TYPE):
         context.user_data["vip"]=True
         await q.message.edit_text("🔒 VIP kino yuboring")
 
+
+    # VIP PURCHASE BUTTONS
+    if q.data.startswith("buy_"):
+        plan=q.data.split("_")[1]
+        if plan not in VIP_PLANS:
+            await q.answer("Xatolik",show_alert=True)
+            return
+
+        stars,days = VIP_PLANS[plan]
+        uid=str(q.from_user.id)
+
+        expire = datetime.utcnow()+timedelta(days=days)
+        VIP[uid]=expire.isoformat()
+        save()
+
+        await q.message.edit_text(
+            f"✅ VIP aktivlashtirildi!\n\n⏳ Tugash: {expire.strftime('%Y-%m-%d %H:%M')} UTC"
+        )
+        return
+
     if q.data=="vipserial":
         SERIAL_MODE=True
         SERIAL_CODE=str(DB["next"])
