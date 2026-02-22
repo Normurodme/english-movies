@@ -68,7 +68,7 @@ STATS_FILE="/data/stats.json"
 
 DB=load(DB_FILE,{"movies":{}, "next":1, "vip_only":[]})
 
-# ensure vip_only exists
+# FIX crash if vip_only missing
 if "vip_only" not in DB:
     DB["vip_only"]=[]
 USERS=load(USERS_FILE,[])
@@ -256,8 +256,12 @@ async def download(update:Update,context:ContextTypes.DEFAULT_TYPE):
 
 async def vipdownload(update:Update,context:ContextTypes.DEFAULT_TYPE):
 
-    if update.effective_user.id!=ADMIN_ID:
+    uid = update.effective_user.id
+    if not is_vip(uid) and uid != ADMIN_ID:
+        await update.message.reply_text("❌ Bu bo‘lim faqat VIP foydalanuvchilar uchun\n\n👑 VIP olish: /vip")
         return
+
+    if update.effective_user.id!=ADMIN_ID: return
 
     kb=InlineKeyboardMarkup([
         [InlineKeyboardButton("🔒 VIP Kino",callback_data="vipmovie"),
@@ -431,7 +435,8 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
         DB["movies"][code]=sent.message_id
 
         if context.user_data.get("vip"):
-            if code not in DB["vip_only"]:
+            DB.setdefault("vip_only",[])
+        if code not in DB["vip_only"]:
             DB["vip_only"].append(code)
 
         context.user_data.clear()
@@ -460,7 +465,7 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
         return
 
     # VIP PROTECTION
-    if text in DB.get("vip_only",[]) and not is_vip(uid):
+    if text in DB.setdefault("vip_only",[]) and not is_vip(uid):
         await update.message.reply_text(TXT_VIP_ONLY)
         return
 
