@@ -156,12 +156,11 @@ async def start(update:Update,context:ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(TXT_START,parse_mode="HTML")
 
 # =========================================
-# DELETE COMMAND (YANGI QO‘SHILDI)
+# DELETE COMMAND (qo‘shildi)
 # =========================================
 
 async def delete_cmd(update:Update,context:ContextTypes.DEFAULT_TYPE):
-    if update.effective_user.id!=ADMIN_ID:
-        return
+    if update.effective_user.id!=ADMIN_ID: return
     context.user_data["delete_mode"]=True
     await update.message.reply_text("🗑 O‘chirish uchun kino kodini yuboring")
 
@@ -237,7 +236,6 @@ async def vipdownload(update:Update,context:ContextTypes.DEFAULT_TYPE):
 # =========================================
 # CALLBACK
 # =========================================
-# (BU QISM SENIKI — O‘ZGARTIRILMAGAN)
 
 async def callbacks(update:Update,context:ContextTypes.DEFAULT_TYPE):
 
@@ -279,7 +277,66 @@ async def callbacks(update:Update,context:ContextTypes.DEFAULT_TYPE):
         await q.message.edit_text("🔒 VIP serial yuboring")
 
 # =========================================
-# MESSAGE HANDLER (DELETE PATCH QO‘SHILDI)
+# DONE SERIAL
+# =========================================
+
+async def done(update:Update,context:ContextTypes.DEFAULT_TYPE):
+    global SERIAL_MODE
+
+    if update.effective_user.id!=ADMIN_ID: return
+
+    if SERIAL_MODE:
+        await update.message.reply_text(f"✅ Saqlandi. Kod: {SERIAL_CODE}")
+        DB["next"]+=1
+        save()
+
+    SERIAL_MODE=False
+
+# =========================================
+# NEXT CODE SETTER
+# =========================================
+
+async def ndelete(update:Update,context:ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id!=ADMIN_ID: return
+    context.user_data["setnext"]=True
+    await update.message.reply_text(TXT_SETNEXT.format(DB["next"]),parse_mode="HTML")
+
+# =========================================
+# ADS
+# =========================================
+
+async def ads(update:Update,context:ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id!=ADMIN_ID: return
+    context.user_data["ads"]=True
+    await update.message.reply_text("📢 Reklama yuboring")
+
+# =========================================
+# STATS
+# =========================================
+
+async def stats(update:Update,context:ContextTypes.DEFAULT_TYPE):
+
+    if update.effective_user.id!=ADMIN_ID: return
+
+    now=time.time()
+    day=86400
+
+    users_24=set([u for u,t in STATS["users"] if now-t<day])
+    req_24=len([1 for t in STATS["requests"] if now-t<day])
+
+    txt=(
+        "📊 <b>STATISTIKA</b>\n\n"
+        f"👥 Users: <b>{len(USERS)}</b>\n"
+        f"🎬 Movies: <b>{len(DB['movies'])}</b>\n"
+        f"🔢 Next: <b>{DB['next']}</b>\n\n"
+        f"🕒 24h users: <b>{len(users_24)}</b>\n"
+        f"📥 24h requests: <b>{req_24}</b>"
+    )
+
+    await update.message.reply_text(txt,parse_mode="HTML")
+
+# =========================================
+# MESSAGE HANDLER
 # =========================================
 
 async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
@@ -300,24 +357,22 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
 
         if text in DB["movies"]:
             del DB["movies"][text]
-
             if text in DB["vip_only"]:
                 DB["vip_only"].remove(text)
-
             save()
             await update.message.reply_text(TXT_DELETED)
         else:
             await update.message.reply_text(TXT_NOT_FOUND)
         return
 
-    # ===== QOLGAN QISM O‘ZGARMAGAN =====
-
+    # SUB CHECK
     if not await check_sub(uid,context):
         await sub_msg(update)
         return
 
     if not text: return
 
+    # COOLDOWN
     now=time.time()
     if uid in LAST_REQ and now-LAST_REQ[uid]<REQUEST_DELAY:
         await update.message.reply_text(TXT_WAIT)
@@ -329,6 +384,7 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(TXT_NOT_FOUND)
         return
 
+    # VIP PROTECTION
     if text in DB.get("vip_only",[]) and not is_vip(uid):
         await update.message.reply_text(TXT_VIP_ONLY)
         return
@@ -375,7 +431,7 @@ def main():
     app.add_handler(CommandHandler("vips",vips))
     app.add_handler(CommandHandler("download",download))
     app.add_handler(CommandHandler("vipdownload",vipdownload))
-    app.add_handler(CommandHandler("delete",delete_cmd))  # ← qo‘shildi
+    app.add_handler(CommandHandler("delete",delete_cmd))
     app.add_handler(CommandHandler("ndelete",ndelete))
     app.add_handler(CommandHandler("ads",ads))
     app.add_handler(CommandHandler("stats",stats))
