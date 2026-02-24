@@ -2,7 +2,6 @@ import os
 import json
 import asyncio
 import time
-import requests
 from datetime import datetime, timedelta
 
 from telegram import *
@@ -44,18 +43,6 @@ VIP_PLANS = {
     "month": (125,30),
     "3month": (300,90)
 }
-
-
-# =========================================
-# IMDB FETCH
-# =========================================
-def fetch_imdb(title,year):
-    try:
-        url=f"http://www.omdbapi.com/?apikey=7b2e8861&t={title}&y={year}"
-        r=requests.get(url,timeout=10).json()
-        return r.get("Poster"), r.get("imdbRating")
-    except:
-        return None,None
 
 # =========================================
 # STORAGE
@@ -471,38 +458,7 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
         if code not in DB["vip_only"]:
             DB["vip_only"].append(code)
 
-        
-        # ===== IMDB META =====
-        caption_text = update.message.caption or ""
-        title="Unknown"
-        year=""
-        m=re.search(r"(.+?)\((\d{4})\)",caption_text)
-        if m:
-            title=m.group(1).strip()
-            year=m.group(2)
-
-        poster,rating=fetch_imdb(title,year)
-
-        text_post=f"📺 <b>{title} ({year})</b>\n⭐ IMDb: <b>{rating}</b>\n🔢 Code: <code>{code}</code>"
-
-        # STORAGE SAVE
-        sent=await context.bot.copy_message(
-            STORAGE_CHANNEL_ID,
-            update.effective_chat.id,
-            update.message.message_id,
-            caption=caption
-        )
-
-        DB["movies"][code]=sent.message_id
-
-        # POSTER CHANNEL POST
-        if poster and poster!="N/A":
-            try:
-                await context.bot.send_photo(REQUIRED_CHANNEL,poster,caption=text_post,parse_mode="HTML")
-            except:
-                pass
-
-        # SERIAL CLEAR FIX
+        # ===== FIX: SERIAL MODE CLEAR BO'LMAYDI =====
         if context.user_data["upload"]=="movie":
             context.user_data.clear()
 
