@@ -458,7 +458,10 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
         if code not in DB["vip_only"]:
             DB["vip_only"].append(code)
 
-        context.user_data.clear()
+        # ===== FIX: SERIAL MODE CLEAR BO'LMAYDI =====
+        if context.user_data["upload"]=="movie":
+            context.user_data.clear()
+
         save()
 
         await update.message.reply_text(f"{TXT_DONE}: {code}")
