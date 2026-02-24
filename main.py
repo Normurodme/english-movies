@@ -455,8 +455,8 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
 
         if context.user_data.get("vip"):
             DB.setdefault("vip_only",[])
-        if code not in DB["vip_only"]:
-            DB["vip_only"].append(code)
+            if code not in DB["vip_only"]:
+                DB["vip_only"].append(code)
 
         # ===== FIX: SERIAL MODE CLEAR BO'LMAYDI =====
         if context.user_data["upload"]=="movie":
