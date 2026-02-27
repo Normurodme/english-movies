@@ -73,12 +73,16 @@ if "vip_only" not in DB:
 USERS=load(USERS_FILE,[])
 VIP=load(VIP_FILE,{})
 STATS=load(STATS_FILE,{"requests":[], "users":[]})
+BANNED_FILE="/data/banned.json"
+BANNED=load(BANNED_FILE,[])
+
 
 def save():
     save_file(DB_FILE,DB)
     save_file(USERS_FILE,USERS)
     save_file(VIP_FILE,VIP)
     save_file(STATS_FILE,STATS)
+    save_file(BANNED_FILE,BANNED)
 
 # =========================================
 # STATES
@@ -88,6 +92,7 @@ SERIAL_MODE=False
 SERIAL_CODE=None
 SERIAL_PART=1
 LAST_REQ={}
+USER_REQS={}
 
 # =========================================
 # VIP SYSTEM
@@ -149,6 +154,10 @@ async def sub_msg(update):
 async def start(update:Update,context:ContextTypes.DEFAULT_TYPE):
     uid=update.effective_user.id
 
+    if str(uid) in BANNED:
+        await update.message.reply_text("You are banned 🚫")
+        return
+
     if uid not in USERS:
         USERS.append(uid)
         save()
@@ -201,7 +210,7 @@ async def vip(update:Update,context:ContextTypes.DEFAULT_TYPE):
 
     text=(
         "👑 <b>VIP privileges</b>\n\n"
-        "• 24 soat will not be deleted\n"
+        "• 6 soat will not be deleted\n"
         "• VIP movies unlock\n"
         "• No ads"
     )
@@ -402,6 +411,11 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
         return
 
     uid=update.effective_user.id
+
+    if str(uid) in BANNED:
+        await update.message.reply_text("You are banned 🚫")
+        return
+
     text=update.message.text.strip() if update.message.text else None
 
     if text and text.startswith("/"): return
@@ -474,12 +488,31 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
 
     if not text: return
 
-    # COOLDOWN
+    
+    # LIMIT + COOLDOWN
     now=time.time()
-    if uid in LAST_REQ and now-LAST_REQ[uid]<REQUEST_DELAY:
+    vip_user=is_vip(uid)
+
+    delay = 15 if vip_user else 30
+    daily_limit = 30 if vip_user else 15
+
+    # cooldown
+    if uid in LAST_REQ and now-LAST_REQ[uid]<delay:
         await update.message.reply_text(TXT_WAIT)
         return
+
     LAST_REQ[uid]=now
+
+    # daily limit
+    logs=USER_REQS.get(uid,[])
+    logs=[t for t in logs if now-t<86400]
+    if len(logs)>=daily_limit:
+        await update.message.reply_text("❌ Daily request limit reached")
+        return
+
+    logs.append(now)
+    USER_REQS[uid]=logs
+
 
     msg_id=DB["movies"].get(text)
     if not msg_id:
@@ -503,7 +536,7 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
         parse_mode="HTML"
     )
 
-    delete_sec=86400 if is_vip(uid) else 900
+    delete_sec=21600 if is_vip(uid) else 900
     asyncio.create_task(auto_delete(context,uid,sent.message_id,delete_sec))
 
 # =========================================
@@ -547,6 +580,27 @@ async def successful_payment(update:Update,context:ContextTypes.DEFAULT_TYPE):
         f"👑 VIP aktivlashtirildi!\n⏳ Tugash: {expire.date()}"
     )
 
+
+# =========================================
+# BAN SYSTEM
+# =========================================
+
+async def ban_user(update:Update,context:ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id!=ADMIN_ID:
+        return
+
+    if not context.args:
+        await update.message.reply_text("Usage: /ban id")
+        return
+
+    uid=context.args[0]
+
+    if uid not in BANNED:
+        BANNED.append(uid)
+        save()
+
+    await update.message.reply_text(f"🚫 Banned: {uid}")
+
 # =========================================
 # RUN
 # =========================================
@@ -568,6 +622,7 @@ def main():
     app.add_handler(CommandHandler("stats",stats))
     app.add_handler(CommandHandler("done",done))
     app.add_handler(CommandHandler("delete",delete_movie))
+    app.add_handler(CommandHandler("ban",ban_user))
 
     app.add_handler(PreCheckoutQueryHandler(precheckout))
     app.add_handler(MessageHandler(filters.SUCCESSFUL_PAYMENT,successful_payment))
