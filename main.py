@@ -493,7 +493,7 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
     now=time.time()
     vip_user=is_vip(uid)
 
-    delay = 15 if vip_user else 30
+    delay = 5 if vip_user else 10
     daily_limit = 30 if vip_user else 15
 
     # cooldown
