@@ -13,7 +13,7 @@ ADMIN_ID = 6220077209
 REQUIRED_CHANNEL = "@moviesbyone"
 STORAGE_CHANNEL_ID = -1003793414081
 
-REQUEST_DELAY = 8
+REQUEST_DELAY = 9
 
 # =========================================
 # TEXT DESIGN
@@ -601,6 +601,24 @@ async def ban_user(update:Update,context:ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text(f"🚫 Banned: {uid}")
 
+async def unban_user(update:Update,context:ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id!=ADMIN_ID:
+        return
+
+    if not context.args:
+        await update.message.reply_text("Usage: /unban id")
+        return
+
+    uid=context.args[0]
+
+    if uid in BANNED:
+        BANNED.remove(uid)
+        save()
+        await update.message.reply_text(f"✅ Unbanned: {uid}")
+    else:
+        await update.message.reply_text("❌ User is not banned")
+
+
 # =========================================
 # RUN
 # =========================================
@@ -623,6 +641,7 @@ def main():
     app.add_handler(CommandHandler("done",done))
     app.add_handler(CommandHandler("delete",delete_movie))
     app.add_handler(CommandHandler("ban",ban_user))
+    app.add_handler(CommandHandler("unban",unban_user))
 
     app.add_handler(PreCheckoutQueryHandler(precheckout))
     app.add_handler(MessageHandler(filters.SUCCESSFUL_PAYMENT,successful_payment))
