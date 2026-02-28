@@ -492,9 +492,7 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
         if mode=="admin":
             target=context.user_data.get("msg_target")
             try:
-                txt = update.message.text or ""
-                await context.bot.send_message(target, f"📩 From Admin :
-{txt}")
+                await update.message.copy(target)
                 await update.message.reply_text("✅ Sent")
             except:
                 await update.message.reply_text("❌ Failed to send")
@@ -507,8 +505,7 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
                 txt=update.message.text or ""
                 await context.bot.send_message(
                     MESSAGE_CHANNEL,
-                    f"📩 From : {uid}
-{txt}"
+                    f"📩 Message from {uid}:\n{txt}"
                 )
                 await update.message.reply_text("✅ Sent to admin")
             except:
