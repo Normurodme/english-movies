@@ -2,6 +2,7 @@ import os
 import json
 import asyncio
 import time
+import re
 from datetime import datetime, timedelta
 
 from telegram import *
@@ -773,8 +774,8 @@ def main():
     app.add_handler(PreCheckoutQueryHandler(precheckout))
     app.add_handler(MessageHandler(filters.SUCCESSFUL_PAYMENT,successful_payment))
 
-    app.add_handler(CallbackQueryHandler(callbacks))
     app.add_handler(CallbackQueryHandler(top_callback,pattern="^top_"))
+    app.add_handler(CallbackQueryHandler(callbacks))
     app.add_handler(MessageHandler(filters.ALL,msg))
     app.add_handler(MessageHandler(filters.ChatType.CHANNEL,channel_post))
 
