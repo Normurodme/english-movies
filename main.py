@@ -14,6 +14,8 @@ REQUIRED_CHANNEL = "@moviesbyone"
 STORAGE_CHANNEL_ID = -1003793414081
 
 REQUEST_DELAY = 9
+MESSAGE_CHANNEL = "@xabarkino"
+
 
 # =========================================
 # TEXT DESIGN
@@ -481,6 +483,36 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"{TXT_DONE}: {code}")
         return
 
+    
+    # MESSAGE FLOW
+    if context.user_data.get("msg_mode"):
+        mode=context.user_data.get("msg_mode")
+
+        # ADMIN REPLY TO USER
+        if mode=="admin":
+            target=context.user_data.get("msg_target")
+            try:
+                await update.message.copy(target)
+                await update.message.reply_text("✅ Sent")
+            except:
+                await update.message.reply_text("❌ Failed to send")
+            context.user_data.clear()
+            return
+
+        # USER SEND TO CHANNEL
+        if mode=="user":
+            try:
+                txt=update.message.text or ""
+                await context.bot.send_message(
+                    MESSAGE_CHANNEL,
+                    f"📩 Message from {uid}:\n{txt}"
+                )
+                await update.message.reply_text("✅ Sent to admin")
+            except:
+                await update.message.reply_text("❌ Failed")
+            context.user_data.clear()
+            return
+
     # SUB CHECK
     if not await check_sub(uid,context):
         await sub_msg(update)
@@ -619,6 +651,31 @@ async def unban_user(update:Update,context:ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("❌ User is not banned")
 
 
+
+# =========================================
+# MESSAGE SYSTEM
+# =========================================
+
+async def message_cmd(update:Update,context:ContextTypes.DEFAULT_TYPE):
+    uid=update.effective_user.id
+
+    # ADMIN MODE
+    if uid==ADMIN_ID and context.args:
+        try:
+            target=int(context.args[0])
+        except:
+            await update.message.reply_text("Invalid ID")
+            return
+
+        context.user_data["msg_mode"]="admin"
+        context.user_data["msg_target"]=target
+        await update.message.reply_text("Do you have message to user ?")
+        return
+
+    # USER MODE
+    context.user_data["msg_mode"]="user"
+    await update.message.reply_text("Do you have message to administator ?")
+
 # =========================================
 # RUN
 # =========================================
@@ -642,6 +699,7 @@ def main():
     app.add_handler(CommandHandler("delete",delete_movie))
     app.add_handler(CommandHandler("ban",ban_user))
     app.add_handler(CommandHandler("unban",unban_user))
+    app.add_handler(CommandHandler("message",message_cmd))
 
     app.add_handler(PreCheckoutQueryHandler(precheckout))
     app.add_handler(MessageHandler(filters.SUCCESSFUL_PAYMENT,successful_payment))
