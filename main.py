@@ -68,11 +68,14 @@ USERS_FILE="/data/users.json"
 VIP_FILE="/data/vip.json"
 STATS_FILE="/data/stats.json"
 
-DB=load(DB_FILE,{"movies":{}, "next":1, "vip_only":[], "catalog":{}})
+DB=load(DB_FILE,{"movies":{}, "next":1, "next_title":1, "vip_only":[], "catalog":{}})
 
 # FIX crash if vip_only missing
 if "vip_only" not in DB:
     DB["vip_only"]=[]
+
+if "next_title" not in DB:
+    DB["next_title"]=1
 
 # NORMALIZE VIP_ONLY TYPES
 if "vip_only" in DB:
@@ -423,6 +426,15 @@ async def done(update:Update,context:ContextTypes.DEFAULT_TYPE):
 
 async def ndelete(update:Update,context:ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id!=ADMIN_ID: return
+
+async def ntitle(update:Update,context:ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id!=ADMIN_ID: return
+    context.user_data["setnexttitle"]=True
+    await update.message.reply_text(
+        f"📌 Current title code: <b>{DB.get('next_title',1)}</b>\nSend new title code",
+        parse_mode="HTML"
+    )
+
     context.user_data["setnext"]=True
     await update.message.reply_text(TXT_SETNEXT.format(DB["next"]),parse_mode="HTML")
 
@@ -517,7 +529,9 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
             return
 
         title=update.message.text.strip()
-        code=str(len(DB.get("catalog",{}))+1)
+        code=str(DB.get("next_title",1))
+
+        DB["next_title"]=int(DB.get("next_title",1))+1
 
         DB.setdefault("catalog",{})
         DB["catalog"][code]={
@@ -552,6 +566,18 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
         if not text.isdigit():
             await update.message.reply_text("Send numbers only")
             return
+
+    # NEXT TITLE SET
+    if uid==ADMIN_ID and context.user_data.get("setnexttitle"):
+        context.user_data.clear()
+        if not text.isdigit():
+            await update.message.reply_text("Send numbers only")
+            return
+        DB["next_title"]=int(text)
+        save()
+        await update.message.reply_text(f"✅ Next title code updated → {text}")
+        return
+
         DB["next"]=int(text)
         save()
         await update.message.reply_text(TXT_UPDATED.format(text))
@@ -981,6 +1007,7 @@ def main():
     app.add_handler(CommandHandler("download",download))
     app.add_handler(CommandHandler("vipdownload",vipdownload))
     app.add_handler(CommandHandler("ndelete",ndelete))
+    app.add_handler(CommandHandler("ntitle",ntitle))
     app.add_handler(CommandHandler("ads",ads))
     app.add_handler(CommandHandler("stats",stats))
     app.add_handler(CommandHandler("done",done))
