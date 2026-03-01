@@ -903,9 +903,11 @@ async def post_init(app):
 # TOP COMMAND
 # =========================================
 async def top_cmd(update:Update,context:ContextTypes.DEFAULT_TYPE):
-    kb=InlineKeyboardMarkup([
-        [InlineKeyboardButton("Week",callback_data="top_week")],
-        [InlineKeyboardButton("Month",callback_data="top_month")]
+    kb = InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton("Week", callback_data="top_week"),
+            InlineKeyboardButton("Month", callback_data="top_month")
+        ]
     ])
     await update.message.reply_text("Choose one",reply_markup=kb)
 
