@@ -210,6 +210,59 @@ async def delete_movie(update:Update,context:ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text(TXT_DELETED)
 
+
+# =========================================
+# ADD VIP MOVIE
+# =========================================
+async def addvip(update:Update,context:ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id!=ADMIN_ID:
+        return
+
+    if not context.args:
+        await update.message.reply_text("Usage: /addvip code")
+        return
+
+    code=str(context.args[0])
+
+    if code not in DB["movies"]:
+        await update.message.reply_text("❌ Code not found")
+        return
+
+    DB.setdefault("vip_only",[])
+
+    if code in DB["vip_only"]:
+        await update.message.reply_text("⚠️ Already VIP")
+        return
+
+    DB["vip_only"].append(code)
+    save()
+
+    await update.message.reply_text(f"✅ {code} added to VIP list")
+
+
+# =========================================
+# REMOVE VIP MOVIE
+# =========================================
+async def delvip(update:Update,context:ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id!=ADMIN_ID:
+        return
+
+    if not context.args:
+        await update.message.reply_text("Usage: /delvip code")
+        return
+
+    code=str(context.args[0])
+
+    if code not in DB.get("vip_only",[]):
+        await update.message.reply_text("❌ This code is not VIP")
+        return
+
+    DB["vip_only"].remove(code)
+    save()
+
+    await update.message.reply_text(f"✅ {code} removed from VIP list")
+
+
 # =========================================
 # VIP BUY PANEL
 # =========================================
@@ -823,6 +876,8 @@ def main():
     app.add_handler(CommandHandler("stats",stats))
     app.add_handler(CommandHandler("done",done))
     app.add_handler(CommandHandler("delete",delete_movie))
+    app.add_handler(CommandHandler("addvip",addvip))
+    app.add_handler(CommandHandler("delvip",delvip))
     app.add_handler(CommandHandler("ban",ban_user))
     app.add_handler(CommandHandler("unban",unban_user))
     app.add_handler(CommandHandler("message",message_cmd))
@@ -842,4 +897,4 @@ def main():
     app.run_polling()
 
 if __name__=="__main__":
-    main()
+    main()'
