@@ -913,8 +913,7 @@ async def top_cmd(update:Update,context:ContextTypes.DEFAULT_TYPE):
     await update.message.reply_sticker("CAACAgIAAxkBAAIBQ2X7k5kq8h5nRkZ2QAAEAAEzBA")
 
     await update.message.reply_text(
-        "🏆 <b>TOP LEADERBOARD</b>
-Choose period:",
+        "🏆 <b>TOP LEADERBOARD</b>\nChoose period:",
         parse_mode="HTML",
         reply_markup=keyboard
     )
