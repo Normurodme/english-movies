@@ -925,18 +925,40 @@ async def top_callback(update:Update,context:ContextTypes.DEFAULT_TYPE):
             stats[code_val]=stats.get(code_val,0)+1
 
     if not stats:
-        await q.message.edit_text("No data")
+        await q.message.edit_text("📊 No statistics yet")
         return
 
     top=sorted(stats.items(), key=lambda x:x[1], reverse=True)[:10]
 
-    text = "Top of {} 🔝\n\n".format("Week" if period==7 else "Month")
+    period_name = "WEEK" if period==7 else "MONTH"
+
+    text = f"🏆 <b>TOP {period_name}</b>
+"
+    text += "━━━━━━━━━━━━━━━━━━━━
+
+"
+
+    medals = ["🥇","🥈","🥉"]
 
     for i,(c,count) in enumerate(top,1):
         title = DB.get("catalog",{}).get(c,{}).get("title","Unknown")
-        text += f"{i}. {title} ({c}) - {count} times\n\n"
+        medal = medals[i-1] if i <= 3 else "🔹"
 
-    await q.message.edit_text(text)
+        text += (
+            f"{medal} <b>{i:02d}.</b> {title}
+"
+            f"     ├ Code: <code>{c}</code>
+"
+            f"     └ Searched: <b>{count}</b>
+
+"
+        )
+
+    text += "━━━━━━━━━━━━━━━━━━━━
+"
+    text += "📈 Updated automatically"
+
+    await q.message.edit_text(text,parse_mode="HTML")
 
 def main():
 
