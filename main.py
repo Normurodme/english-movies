@@ -899,56 +899,78 @@ async def post_init(app):
     asyncio.create_task(vip_checker(app))
 
 
-
 # =========================================
-# TOP COMMAND (FIXED CLEAN VERSION)
+# TOP COMMAND
 # =========================================
 async def top_cmd(update:Update,context:ContextTypes.DEFAULT_TYPE):
-    kb = InlineKeyboardMarkup([
-        [
-            InlineKeyboardButton("📅 Week", callback_data="top_week"),
-            InlineKeyboardButton("🗓 Month", callback_data="top_month")
-        ]
+    kb=InlineKeyboardMarkup([
+        [InlineKeyboardButton("Week",callback_data="top_week")],
+        [InlineKeyboardButton("Month",callback_data="top_month")]
     ])
-    await update.message.reply_text(
-        "🏆 <b>TOP Statistics</b>\n\nChoose period:",
-        reply_markup=kb,
-        parse_mode="HTML"
-    )
+    await update.message.reply_text("Choose one",reply_markup=kb)
 
 async def top_callback(update:Update,context:ContextTypes.DEFAULT_TYPE):
-    q = update.callback_query
+    q=update.callback_query
     await q.answer()
 
     period = 7 if "week" in q.data else 30
-    now = time.time()
-    limit = now - (period * 86400)
+    now=time.time()
+    limit=now-(period*86400)
 
-    stats = {}
-    for code_val, t in STATS.get("codes", []):
-        if t >= limit:
-            stats[code_val] = stats.get(code_val, 0) + 1
+    stats={}
+    for code_val,t in STATS.get("codes",[]):
+        if t>=limit:
+            stats[code_val]=stats.get(code_val,0)+1
 
     if not stats:
-        await q.message.edit_text("📭 <b>No statistics yet</b>", parse_mode="HTML")
+        await q.message.edit_text("No data")
         return
 
-    top = sorted(stats.items(), key=lambda x: x[1], reverse=True)[:10]
+    top=sorted(stats.items(), key=lambda x:x[1], reverse=True)[:10]
 
-    period_name = "WEEK" if period == 7 else "MONTH"
+    text = "Top of {} 🔝\n\n".format("Week" if period==7 else "Month")
 
-    text = f"🏆 <b>TOP 10 OF {period_name}</b>\n"
-    text += "━━━━━━━━━━━━━━━\n\n"
+    for i,(c,count) in enumerate(top,1):
+        title = DB.get("catalog",{}).get(c,{}).get("title","Unknown")
+        text += f"{i}. {title} ({c}) - {count} times\n\n"
 
-    for i, (c, count) in enumerate(top, 1):
-        title = DB.get("catalog", {}).get(c, {}).get("title", "Unknown")
+    await q.message.edit_text(text)
 
-        text += (
-            f"<b>{i}.</b> {title}\n"
-            f"🎬 Code: <code>{c}</code>\n"
-            f"🔥 Requests: <b>{count}</b>\n\n"
-        )
+def main():
 
-    text += "━━━━━━━━━━━━━━━"
+    app=ApplicationBuilder().token(TOKEN).post_init(post_init).build()
 
-    await q.message.edit_text(text, parse_mode="HTML")
+    app.add_handler(CommandHandler("start",start))
+    app.add_handler(CommandHandler("vip",vip))
+    app.add_handler(CommandHandler("vips",vips))
+    app.add_handler(CommandHandler("download",download))
+    app.add_handler(CommandHandler("vipdownload",vipdownload))
+    app.add_handler(CommandHandler("ndelete",ndelete))
+    app.add_handler(CommandHandler("ads",ads))
+    app.add_handler(CommandHandler("stats",stats))
+    app.add_handler(CommandHandler("done",done))
+    app.add_handler(CommandHandler("delete",delete_movie))
+    app.add_handler(CommandHandler("addvip",addvip))
+    app.add_handler(CommandHandler("delvip",delvip))
+    app.add_handler(CommandHandler("ban",ban_user))
+    app.add_handler(CommandHandler("unban",unban_user))
+    app.add_handler(CommandHandler("message",message_cmd))
+    app.add_handler(CommandHandler("top",top_cmd))
+    app.add_handler(CommandHandler("addtitle",addtitle))
+    app.add_handler(CommandHandler("edittitle",edittitle))
+    app.add_handler(CommandHandler("getdb", getdb))
+    app.add_handler(CommandHandler("loaddb", loaddb))
+
+    app.add_handler(PreCheckoutQueryHandler(precheckout))
+    app.add_handler(MessageHandler(filters.SUCCESSFUL_PAYMENT,successful_payment))
+
+    app.add_handler(CallbackQueryHandler(top_callback,pattern="^top_"))
+    app.add_handler(CallbackQueryHandler(callbacks))
+    app.add_handler(MessageHandler(filters.ALL,msg))
+    app.add_handler(MessageHandler(filters.ChatType.CHANNEL,channel_post))
+
+    print("BOT RUNNING...")
+    app.run_polling()
+
+if __name__=="__main__":
+    main()
