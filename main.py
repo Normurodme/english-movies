@@ -945,7 +945,7 @@ async def top_callback(update:Update,context:ContextTypes.DEFAULT_TYPE):
     top = sorted(stats.items(), key=lambda x: x[1], reverse=True)[:10]
 
     header = "📅 TOP WEEK" if is_week else "🗓 TOP MONTH"
-    text = f"🏆 <b>{header}</b>
+    text = f"🏆 <b>{header}</b>\n\n"
 
 "
 
