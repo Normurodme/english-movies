@@ -483,6 +483,32 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
 
     if text and text.startswith("/"): return
 
+    
+    # EDITTITLE FLOW STEP1
+    if uid==ADMIN_ID and context.user_data.get("edit_step")=="code":
+        code_val=update.message.text.strip()
+        context.user_data["edit_code"]=code_val
+        context.user_data["edit_step"]="title"
+        await update.message.reply_text("Send new title")
+        return
+
+    # EDITTITLE FLOW STEP2
+    if uid==ADMIN_ID and context.user_data.get("edit_step")=="title":
+        title=update.message.text.strip()
+        code_val=context.user_data["edit_code"]
+
+        DB.setdefault("catalog",{})
+        DB["catalog"].setdefault(code_val,{})
+        DB["catalog"][code_val]["title"]=title
+        DB["catalog"][code_val].setdefault("msg_id",None)
+        DB["catalog"][code_val].setdefault("date",time.time())
+
+        save()
+        context.user_data.clear()
+        await update.message.reply_text(f"✅ {code_val} → {title}")
+        return
+
+
     # ADDTITLE FLOW
     if uid==ADMIN_ID and context.user_data.get("addtitle"):
         if update.message.text=="/stop":
@@ -504,32 +530,8 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"✅ {code} → {title}")
         return
 
-
-    # EDITTITLE FLOW STEP1
-    if uid==ADMIN_ID and context.user_data.get("edit_step")=="code":
-        code_val=update.message.text.strip()
-        if code_val not in DB.get("catalog",{}):
-            await update.message.reply_text("❌ Code not found")
-            return
-        context.user_data["edit_code"]=code_val
-        context.user_data["edit_step"]="title"
-        await update.message.reply_text("Send new title")
-        return
-
-    # EDITTITLE FLOW STEP2
-    if uid==ADMIN_ID and context.user_data.get("edit_step")=="title":
-        title=update.message.text.strip()
-        code_val=context.user_data["edit_code"]
-
-        DB["catalog"][code_val]["title"]=title
-        save()
-
-        context.user_data.clear()
-        await update.message.reply_text("✅ Title updated")
-        return
-
-
     # ADS SEND
+
     if uid==ADMIN_ID and context.user_data.get("ads"):
         context.user_data.clear()
         sent=0
