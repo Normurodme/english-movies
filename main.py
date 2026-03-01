@@ -932,7 +932,7 @@ async def top_callback(update:Update,context:ContextTypes.DEFAULT_TYPE):
 
     period_name = "WEEK" if period==7 else "MONTH"
 
-    text = f"🏆 <b>TOP {period_name}</b>"
+    text = f"🏆 <b>TOP {period_name}</b>
 "
     text += "━━━━━━━━━━━━━━━━━━━━
 
