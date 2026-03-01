@@ -934,13 +934,16 @@ async def top_cmd(update:Update,context:ContextTypes.DEFAULT_TYPE):
             InlineKeyboardButton("Month", callback_data="top_month")
         ]
     ])
-    await update.message.reply_text("Choose one",reply_markup=kb)
+    await update.message.reply_text("Choose period",reply_markup=kb)
+
 
 async def top_callback(update:Update,context:ContextTypes.DEFAULT_TYPE):
     q=update.callback_query
     await q.answer()
 
     period = 7 if "week" in q.data else 30
+    period_name = "WEEK" if period==7 else "MONTH"
+
     now=time.time()
     limit=now-(period*86400)
 
@@ -950,18 +953,26 @@ async def top_callback(update:Update,context:ContextTypes.DEFAULT_TYPE):
             stats[code_val]=stats.get(code_val,0)+1
 
     if not stats:
-        await q.message.edit_text("No data")
+        await q.message.edit_text("No statistics yet")
         return
 
     top=sorted(stats.items(), key=lambda x:x[1], reverse=True)[:10]
 
-    text = "Top of {} 🔝\n\n".format("Week" if period==7 else "Month")
+    text = f"<b>TOP {period_name}</b>\n"
+    text += "──────────────────\n\n"
 
     for i,(c,count) in enumerate(top,1):
         title = DB.get("catalog",{}).get(c,{}).get("title","Unknown")
-        text += f"{i}. {title} ({c}) - {count} times\n\n"
 
-    await q.message.edit_text(text)
+        text += (
+            f"{i}. <b>{title}</b>\n"
+            f"   Code: <code>{c}</code>\n"
+            f"   Requests: {count}\n\n"
+        )
+
+    text += "──────────────────"
+
+    await q.message.edit_text(text,parse_mode="HTML")
 
 def main():
 
