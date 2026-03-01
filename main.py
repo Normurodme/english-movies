@@ -899,72 +899,42 @@ async def post_init(app):
     asyncio.create_task(vip_checker(app))
 
 
-
 # =========================================
 # TOP COMMAND
 # =========================================
 async def top_cmd(update:Update,context:ContextTypes.DEFAULT_TYPE):
+    kb=InlineKeyboardMarkup([
+        [InlineKeyboardButton("Week",callback_data="top_week")],
+        [InlineKeyboardButton("Month",callback_data="top_month")]
+    ])
+    await update.message.reply_text("Choose one",reply_markup=kb)
 
-    keyboard = InlineKeyboardMarkup([[
-        InlineKeyboardButton("📅 Week",callback_data="top_week"),
-        InlineKeyboardButton("🗓 Month",callback_data="top_month")
-    ]])
-
-    await update.message.reply_sticker("CAACAgIAAxkBAAIBQ2X7k5kq8h5nRkZ2QAAEAAEzBA")
-
-    await update.message.reply_text(
-        "🏆 <b>TOP LEADERBOARD</b>\nChoose period:",
-        parse_mode="HTML",
-        reply_markup=keyboard
-    )
-
-
-# =========================================
-# TOP CALLBACK
-# =========================================
 async def top_callback(update:Update,context:ContextTypes.DEFAULT_TYPE):
-
-    q = update.callback_query
+    q=update.callback_query
     await q.answer()
 
-    is_week = "week" in q.data
-    period = 7 if is_week else 30
+    period = 7 if "week" in q.data else 30
+    now=time.time()
+    limit=now-(period*86400)
 
-    now = time.time()
-    limit = now - (period * 86400)
-
-    stats = {}
-    for code_val, t in STATS.get("codes", []):
-        if t >= limit:
-            stats[code_val] = stats.get(code_val, 0) + 1
+    stats={}
+    for code_val,t in STATS.get("codes",[]):
+        if t>=limit:
+            stats[code_val]=stats.get(code_val,0)+1
 
     if not stats:
-        await q.message.edit_text("📭 No statistics yet")
+        await q.message.edit_text("No data")
         return
 
-    top = sorted(stats.items(), key=lambda x: x[1], reverse=True)[:10]
+    top=sorted(stats.items(), key=lambda x:x[1], reverse=True)[:10]
 
-    header = "📅 TOP WEEK" if is_week else "🗓 TOP MONTH"
-    text = f"🏆 <b>{header}</b>\n\n"
+    text = "Top of {} 🔝\n\n".format("Week" if period==7 else "Month")
 
+    for i,(c,count) in enumerate(top,1):
+        title = DB.get("catalog",{}).get(c,{}).get("title","Unknown")
+        text += f"{i}. {title} ({c}) - {count} times\n\n"
 
-    medals = ["🥇", "🥈", "🥉"]
-
-    for i, (c, count) in enumerate(top, 1):
-        title = DB.get("catalog", {}).get(c, {}).get("title", "Unknown")
-        rank = medals[i-1] if i <= 3 else f"#{i}"
-
-        text += (
-            f"{rank} <b>{title}</b>
-"
-            f"└ Code: <code>{c}</code>
-"
-            f"└ Requests: <b>{count}</b>
-
-"
-        )
-
-    await q.message.edit_text(text, parse_mode="HTML")
+    await q.message.edit_text(text)
 
 def main():
 
