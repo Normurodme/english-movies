@@ -1041,8 +1041,8 @@ def main():
 
     app.add_handler(CallbackQueryHandler(top_callback,pattern="^top_"))
     app.add_handler(CallbackQueryHandler(callbacks))
-    app.add_handler(MessageHandler(filters.ALL,msg))
     app.add_handler(MessageHandler(filters.ChatType.CHANNEL,channel_post))
+    app.add_handler(MessageHandler(filters.ALL & ~filters.ChatType.CHANNEL, msg))
 
     print("BOT RUNNING...")
     app.run_polling()
