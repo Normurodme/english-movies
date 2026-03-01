@@ -483,6 +483,52 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
 
     if text and text.startswith("/"): return
 
+    # ADDTITLE FLOW
+    if uid==ADMIN_ID and context.user_data.get("addtitle"):
+        if update.message.text=="/stop":
+            context.user_data.clear()
+            await update.message.reply_text("Stopped.")
+            return
+
+        title=update.message.text.strip()
+        code=str(len(DB.get("catalog",{}))+1)
+
+        DB.setdefault("catalog",{})
+        DB["catalog"][code]={
+            "title":title,
+            "msg_id":None,
+            "date":time.time()
+        }
+        save()
+
+        await update.message.reply_text(f"✅ {code} → {title}")
+        return
+
+
+    # EDITTITLE FLOW STEP1
+    if uid==ADMIN_ID and context.user_data.get("edit_step")=="code":
+        code_val=update.message.text.strip()
+        if code_val not in DB.get("catalog",{}):
+            await update.message.reply_text("❌ Code not found")
+            return
+        context.user_data["edit_code"]=code_val
+        context.user_data["edit_step"]="title"
+        await update.message.reply_text("Send new title")
+        return
+
+    # EDITTITLE FLOW STEP2
+    if uid==ADMIN_ID and context.user_data.get("edit_step")=="title":
+        title=update.message.text.strip()
+        code_val=context.user_data["edit_code"]
+
+        DB["catalog"][code_val]["title"]=title
+        save()
+
+        context.user_data.clear()
+        await update.message.reply_text("✅ Title updated")
+        return
+
+
     # ADS SEND
     if uid==ADMIN_ID and context.user_data.get("ads"):
         context.user_data.clear()
@@ -825,6 +871,24 @@ async def loaddb(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         await update.message.reply_text(f"❌ Load failed: {e}")
 
+
+
+# =========================================
+# ADDTITLE SYSTEM
+# =========================================
+async def addtitle(update:Update,context:ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id!=ADMIN_ID:
+        return
+    context.user_data["addtitle"]=True
+    await update.message.reply_text("Send titles one by one. Send /stop to finish")
+
+async def edittitle(update:Update,context:ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id!=ADMIN_ID:
+        return
+    context.user_data["edit_step"]="code"
+    await update.message.reply_text("Send movie code to edit")
+
+
 # =========================================
 # RUN
 # =========================================
@@ -890,6 +954,8 @@ def main():
     app.add_handler(CommandHandler("unban",unban_user))
     app.add_handler(CommandHandler("message",message_cmd))
     app.add_handler(CommandHandler("top",top_cmd))
+    app.add_handler(CommandHandler("addtitle",addtitle))
+    app.add_handler(CommandHandler("edittitle",edittitle))
     app.add_handler(CommandHandler("getdb", getdb))
     app.add_handler(CommandHandler("loaddb", loaddb))
 
