@@ -425,18 +425,28 @@ async def done(update:Update,context:ContextTypes.DEFAULT_TYPE):
 # =========================================
 
 async def ndelete(update:Update,context:ContextTypes.DEFAULT_TYPE):
-    if update.effective_user.id!=ADMIN_ID: return
+    if update.effective_user.id!=ADMIN_ID:
+        return
+
+    context.user_data.clear()
+    context.user_data["setnext"]=True
+
+    await update.message.reply_text(
+        f"📌 Current code: <b>{DB['next']}</b>\nSend new code",
+        parse_mode="HTML"
+    )
 
 async def ntitle(update:Update,context:ContextTypes.DEFAULT_TYPE):
-    if update.effective_user.id!=ADMIN_ID: return
+    if update.effective_user.id!=ADMIN_ID:
+        return
+
+    context.user_data.clear()
     context.user_data["setnexttitle"]=True
+
     await update.message.reply_text(
         f"📌 Current title code: <b>{DB.get('next_title',1)}</b>\nSend new title code",
         parse_mode="HTML"
     )
-
-    context.user_data["setnext"]=True
-    await update.message.reply_text(TXT_SETNEXT.format(DB["next"]),parse_mode="HTML")
 
 # =========================================
 # ADS
@@ -563,9 +573,15 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
     # NEXT SET
     if uid==ADMIN_ID and context.user_data.get("setnext"):
         context.user_data.clear()
+
         if not text.isdigit():
             await update.message.reply_text("Send numbers only")
             return
+
+        DB["next"]=int(text)
+        save()
+        await update.message.reply_text(f"✅ Next code updated → {text}")
+        return
 
     # NEXT TITLE SET
     if uid==ADMIN_ID and context.user_data.get("setnexttitle"):
@@ -578,10 +594,6 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"✅ Next title code updated → {text}")
         return
 
-        DB["next"]=int(text)
-        save()
-        await update.message.reply_text(TXT_UPDATED.format(text))
-        return
 
     # UPLOAD
     if uid==ADMIN_ID and context.user_data.get("upload") and (update.message.video or update.message.document):
