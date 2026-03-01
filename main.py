@@ -657,7 +657,7 @@ async def channel_post(update:Update,context:ContextTypes.DEFAULT_TYPE):
 
     title = text.split("\n")[0].strip()
 
-    m=re.search(r'(?:Code|CODE|code)[: ]+(\\S+)', text)
+    m=re.search(r'(?:Code|CODE|code)\s*[:\-]\s*(\S+)', text)
     if not m:
         return
 
