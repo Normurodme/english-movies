@@ -424,7 +424,9 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("You are banned 🚫")
         return
 
-    text=update.message.text.strip() if update.message.text else None
+    text = update.message.text if update.message.text else None
+    if text:
+        text = text.strip().replace(" ", "").replace("\n", "").replace("\r", "")
 
     if text and text.startswith("/"): return
 
@@ -559,7 +561,7 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
 
     # VIP PROTECTION
     vip_list = set(str(x) for x in DB.get("vip_only",[]))
-    if str(text) in vip_list and not is_vip(uid):
+    if text in vip_list and not is_vip(uid):
         await update.message.reply_text(TXT_VIP_ONLY)
         return
 
