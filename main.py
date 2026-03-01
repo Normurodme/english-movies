@@ -903,17 +903,30 @@ async def post_init(app):
 # TOP COMMAND
 # =========================================
 async def top_cmd(update:Update,context:ContextTypes.DEFAULT_TYPE):
-    kb=InlineKeyboardMarkup([
-        [InlineKeyboardButton("Week",callback_data="top_week")],
-        [InlineKeyboardButton("Month",callback_data="top_month")]
-    ])
+
+    keyboard = InlineKeyboardMarkup([[
+        InlineKeyboardButton("📅 Week",callback_data="top_week"),
+        InlineKeyboardButton("🗓 Month",callback_data="top_month")
+    ]])
+
+    await update.message.reply_sticker("CAACAgIAAxkBAAIBQ2X7k5kq8h5nRkZ2QAAEAAEzBA")
+
+    await update.message.reply_text(
+        "🏆 <b>TOP LEADERBOARD</b>
+Choose period:",
+        parse_mode="HTML",
+        reply_markup=keyboard
+    )
+
     await update.message.reply_text("Choose one",reply_markup=kb)
 
 async def top_callback(update:Update,context:ContextTypes.DEFAULT_TYPE):
-    q=update.callback_query
+    q = update.callback_query
     await q.answer()
 
-    period = 7 if "week" in q.data else 30
+    is_week = "week" in q.data
+    period = 7 if is_week else 30
+
     now=time.time()
     limit=now-(period*86400)
 
@@ -923,7 +936,34 @@ async def top_callback(update:Update,context:ContextTypes.DEFAULT_TYPE):
             stats[code_val]=stats.get(code_val,0)+1
 
     if not stats:
-        await q.message.edit_text("No data")
+        await q.message.edit_text("📭 No statistics yet")
+        return
+
+    top=sorted(stats.items(), key=lambda x:x[1], reverse=True)[:10]
+
+    header = "📅 TOP WEEK" if is_week else "🗓 TOP MONTH"
+    text=f"🏆 <b>{header}</b>
+
+"
+
+    medals=["🥇","🥈","🥉"]
+
+    for i,(c,count) in enumerate(top,1):
+        title = DB.get("catalog",{}).get(c,{}).get("title","Unknown")
+        rank = medals[i-1] if i<=3 else f"#{i}"
+
+        text+=(
+            f"{rank} <b>{title}</b>
+"
+            f"└ Code: <code>{c}</code>
+"
+            f"└ Requests: <b>{count}</b>
+
+"
+        )
+
+    await q.message.edit_text(text,parse_mode="HTML")
+
         return
 
     top=sorted(stats.items(), key=lambda x:x[1], reverse=True)[:10]
