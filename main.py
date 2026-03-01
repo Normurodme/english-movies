@@ -3,6 +3,7 @@ import json
 import asyncio
 import time
 import re
+import sys
 from datetime import datetime, timedelta
 
 from telegram import *
@@ -758,6 +759,18 @@ async def loaddb(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         await update.message.reply_text(f"Error: {e}")
 
+
+
+# =========================================
+# RESTART BOT (ADMIN)
+# =========================================
+async def restart(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id != ADMIN_ID:
+        return
+
+    await update.message.reply_text("♻️ Restarting bot...")
+    os.execv(sys.executable, ["python"] + sys.argv)
+
 # =========================================
 # RUN
 # =========================================
@@ -823,6 +836,7 @@ def main():
     app.add_handler(CommandHandler("top",top_cmd))
     app.add_handler(CommandHandler("getdb", getdb))
     app.add_handler(CommandHandler("loaddb", loaddb))
+    app.add_handler(CommandHandler("restart", restart))
 
     app.add_handler(PreCheckoutQueryHandler(precheckout))
     app.add_handler(MessageHandler(filters.SUCCESSFUL_PAYMENT,successful_payment))
