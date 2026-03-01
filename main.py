@@ -470,10 +470,10 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
 
         DB["movies"][code]=sent.message_id
 
-        if context.user_data.get("vip"):
-            DB.setdefault("vip_only",[])
-            if code not in DB["vip_only"]:
-                DB["vip_only"].append(code)
+        if context.user_data.get("vip") is True:
+            DB.setdefault("vip_only", [])
+            if str(code) not in DB["vip_only"]:
+                DB["vip_only"].append(str(code))
 
         # ===== FIX: SERIAL MODE CLEAR BO'LMAYDI =====
         if context.user_data["upload"]=="movie":
@@ -547,13 +547,15 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
     USER_REQS[uid]=logs
 
 
-    msg_id=DB["movies"].get(text)
+    clean_code = str(text).strip()
+    msg_id = DB.get("movies", {}).get(clean_code)
     if not msg_id:
         await update.message.reply_text(TXT_NOT_FOUND)
         return
 
     # VIP PROTECTION
-    if text in DB.setdefault("vip_only",[]) and not is_vip(uid):
+    vip_list = DB.get("vip_only", [])
+    if clean_code in vip_list and not is_vip(uid):
         await update.message.reply_text(TXT_VIP_ONLY)
         return
 
