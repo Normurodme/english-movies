@@ -901,9 +901,7 @@ async def titles(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("❌ No titles found")
         return
 
-    text = "🎬 <b>All Movie Titles</b>
-
-"
+    text = "🎬 <b>All Movie Titles</b>"
 
     for code, data in sorted(catalog.items(), key=lambda x: x[0]):
         title = data.get("title", "No title")
