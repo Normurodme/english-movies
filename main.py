@@ -644,9 +644,18 @@ async def channel_post(update:Update,context:ContextTypes.DEFAULT_TYPE):
         return
 
     msg = update.channel_post
-    text = msg.text or msg.caption or ""
 
-    title = text.split("\n")[0].strip() if text else "Unknown"
+    if not msg.chat.username:
+        return
+
+    if msg.chat.username.lower() != REQUIRED_CHANNEL.replace("@","").lower():
+        return
+
+    text = msg.text or msg.caption or ""
+    if not text:
+        return
+
+    title = text.split("\n")[0].strip()
 
     m=re.search(r'(?:Code|CODE|code)[: ]+(\\S+)', text)
     if not m:
@@ -660,9 +669,8 @@ async def channel_post(update:Update,context:ContextTypes.DEFAULT_TYPE):
         "msg_id":msg.message_id,
         "date":time.time()
     }
+
     save()
-
-
 # =========================================
 # AUTO DELETE
 # =========================================
