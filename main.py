@@ -900,65 +900,65 @@ async def post_init(app):
 
 
 # =========================================
-# TOP COMMAND
+# TOP COMMAND (UPDATED DESIGN)
 # =========================================
 async def top_cmd(update:Update,context:ContextTypes.DEFAULT_TYPE):
     kb = InlineKeyboardMarkup([
         [
-            InlineKeyboardButton("Week", callback_data="top_week"),
-            InlineKeyboardButton("Month", callback_data="top_month")
+            InlineKeyboardButton("📅 Week", callback_data="top_week"),
+            InlineKeyboardButton("🗓 Month", callback_data="top_month")
         ]
     ])
-    await update.message.reply_text("Choose one",reply_markup=kb)
+    await update.message.reply_text(
+        "🏆 <b>TOP Statistics</b>\n\nChoose period:"
+Choose period:",
+        reply_markup=kb,
+        parse_mode="HTML"
+    )
 
 async def top_callback(update:Update,context:ContextTypes.DEFAULT_TYPE):
-    q=update.callback_query
+    q = update.callback_query
     await q.answer()
 
     period = 7 if "week" in q.data else 30
-    now=time.time()
-    limit=now-(period*86400)
+    now = time.time()
+    limit = now - (period * 86400)
 
-    stats={}
-    for code_val,t in STATS.get("codes",[]):
-        if t>=limit:
-            stats[code_val]=stats.get(code_val,0)+1
+    stats = {}
+    for code_val, t in STATS.get("codes", []):
+        if t >= limit:
+            stats[code_val] = stats.get(code_val, 0) + 1
 
     if not stats:
-        await q.message.edit_text("📊 No statistics yet")
+        await q.message.edit_text("📭 <b>No statistics yet</b>", parse_mode="HTML")
         return
 
-    top=sorted(stats.items(), key=lambda x:x[1], reverse=True)[:10]
+    top = sorted(stats.items(), key=lambda x: x[1], reverse=True)[:10]
 
-    period_name = "WEEK" if period==7 else "MONTH"
+    period_name = "WEEK" if period == 7 else "MONTH"
 
-    text = f"🏆 <b>TOP {period_name}</b>
+    text = f"🏆 <b>TOP 10 OF {period_name}</b>
 "
-    text += "━━━━━━━━━━━━━━━━━━━━
+    text += "━━━━━━━━━━━━━━━
 
 "
 
-    medals = ["🥇","🥈","🥉"]
-
-    for i,(c,count) in enumerate(top,1):
-        title = DB.get("catalog",{}).get(c,{}).get("title","Unknown")
-        medal = medals[i-1] if i <= 3 else "🔹"
+    for i, (c, count) in enumerate(top, 1):
+        title = DB.get("catalog", {}).get(c, {}).get("title", "Unknown")
 
         text += (
-            f"{medal} <b>{i:02d}.</b> {title}
+            f"<b>{i}.</b> {title}
 "
-            f"     ├ Code: <code>{c}</code>
+            f"🎬 Code: <code>{c}</code>
 "
-            f"     └ Searched: <b>{count}</b>
+            f"🔥 Requests: <b>{count}</b>
 
 "
         )
 
-    text += "━━━━━━━━━━━━━━━━━━━━
-"
-    text += "📈 Updated automatically"
+    text += "━━━━━━━━━━━━━━━"
 
-    await q.message.edit_text(text,parse_mode="HTML")
+    await q.message.edit_text(text, parse_mode="HTML")
 
 def main():
 
