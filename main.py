@@ -910,8 +910,7 @@ async def top_cmd(update:Update,context:ContextTypes.DEFAULT_TYPE):
         ]
     ])
     await update.message.reply_text(
-        "🏆 <b>TOP Statistics</b>
-
+        "🏆 <b>TOP Statistics</b>\n\nChoose period:"
 Choose period:",
         reply_markup=kb,
         parse_mode="HTML"
