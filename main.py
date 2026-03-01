@@ -905,8 +905,7 @@ async def titles(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     for code, data in sorted(catalog.items(), key=lambda x: x[0]):
         title = data.get("title", "No title")
-        text += f"🔢 <b>{code}</b> — {title}
-"
+        text += f"🔢 <b>{code}</b> — {title}"
 
     await update.message.reply_text(text, parse_mode="HTML")
 
