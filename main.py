@@ -713,6 +713,19 @@ async def message_cmd(update:Update,context:ContextTypes.DEFAULT_TYPE):
     context.user_data["msg_mode"]="user"
     await update.message.reply_text("Do you have message to administator ?")
 
+
+
+# =========================================
+# GET DB FILE (ADMIN)
+# =========================================
+async def getdb(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id != ADMIN_ID:
+        return
+    try:
+        await update.message.reply_document(open(DB_FILE,"rb"))
+    except:
+        await update.message.reply_text("DB file not found")
+
 # =========================================
 # RUN
 # =========================================
@@ -776,6 +789,7 @@ def main():
     app.add_handler(CommandHandler("unban",unban_user))
     app.add_handler(CommandHandler("message",message_cmd))
     app.add_handler(CommandHandler("top",top_cmd))
+    app.add_handler(CommandHandler("getdb", getdb))
 
     app.add_handler(PreCheckoutQueryHandler(precheckout))
     app.add_handler(MessageHandler(filters.SUCCESSFUL_PAYMENT,successful_payment))
