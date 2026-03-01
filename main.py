@@ -726,6 +726,36 @@ async def getdb(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except:
         await update.message.reply_text("DB file not found")
 
+
+
+# =========================================
+# LOAD DB FROM FILE (ADMIN)
+# =========================================
+async def loaddb(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id != ADMIN_ID:
+        return
+
+    if not update.message.document:
+        await update.message.reply_text("Send DB json file")
+        return
+
+    file = await update.message.document.get_file()
+    path = "new_db.json"
+    await file.download_to_drive(path)
+
+    try:
+        with open(path) as f:
+            newdb=json.load(f)
+
+        global DB
+        DB=newdb
+        save()
+
+        await update.message.reply_text("✅ DB updated successfully")
+
+    except Exception as e:
+        await update.message.reply_text(f"Error: {e}")
+
 # =========================================
 # RUN
 # =========================================
@@ -790,6 +820,7 @@ def main():
     app.add_handler(CommandHandler("message",message_cmd))
     app.add_handler(CommandHandler("top",top_cmd))
     app.add_handler(CommandHandler("getdb", getdb))
+    app.add_handler(CommandHandler("loaddb", loaddb))
 
     app.add_handler(PreCheckoutQueryHandler(precheckout))
     app.add_handler(MessageHandler(filters.SUCCESSFUL_PAYMENT,successful_payment))
