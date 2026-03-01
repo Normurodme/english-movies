@@ -14,7 +14,7 @@ ADMIN_ID = 6220077209
 REQUIRED_CHANNEL = "@moviesbyone"
 STORAGE_CHANNEL_ID = -1003793414081
 
-REQUEST_DELAY = 9
+REQUEST_DELAY = 5
 MESSAGE_CHANNEL = "@xabarkino"
 
 
@@ -73,6 +73,11 @@ DB=load(DB_FILE,{"movies":{}, "next":1, "vip_only":[], "catalog":{}})
 # FIX crash if vip_only missing
 if "vip_only" not in DB:
     DB["vip_only"]=[]
+
+# NORMALIZE VIP_ONLY TYPES
+if "vip_only" in DB:
+    DB["vip_only"] = [str(x) for x in DB["vip_only"]]
+
 USERS=load(USERS_FILE,[])
 VIP=load(VIP_FILE,{})
 STATS=load(STATS_FILE,{"requests":[], "users":[], "codes":[]})
@@ -553,7 +558,8 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
         return
 
     # VIP PROTECTION
-    if text in DB.setdefault("vip_only",[]) and not is_vip(uid):
+    vip_list = set(str(x) for x in DB.get("vip_only",[]))
+    if str(text) in vip_list and not is_vip(uid):
         await update.message.reply_text(TXT_VIP_ONLY)
         return
 
