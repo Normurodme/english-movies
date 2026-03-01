@@ -639,17 +639,16 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
 # CHANNEL POST CAPTURE (SAVE MOVIE NAME)
 # =========================================
 async def channel_post(update:Update,context:ContextTypes.DEFAULT_TYPE):
-    if not update.channel_post or not update.channel_post.chat.username:
-        return
-    if update.channel_post.chat.username.lower() != REQUIRED_CHANNEL.replace("@","").lower():
+
+    if not update.channel_post:
         return
 
     msg = update.channel_post
     text = msg.text or msg.caption or ""
-    lines = text.split("\n")
-    title = lines[0].strip() if lines else "Unknown"
 
-    m=re.search(r'(?:Code|CODE|code)[: ]+(\S+)', text)
+    title = text.split("\n")[0].strip() if text else "Unknown"
+
+    m=re.search(r'(?:Code|CODE|code)[: ]+(\\S+)', text)
     if not m:
         return
 
@@ -662,6 +661,7 @@ async def channel_post(update:Update,context:ContextTypes.DEFAULT_TYPE):
         "date":time.time()
     }
     save()
+
 
 # =========================================
 # AUTO DELETE
