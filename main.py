@@ -2,6 +2,7 @@ import os
 import json
 import asyncio
 import time
+import re
 from datetime import datetime, timedelta
 
 from telegram import *
@@ -13,7 +14,9 @@ ADMIN_ID = 6220077209
 REQUIRED_CHANNEL = "@moviesbyone"
 STORAGE_CHANNEL_ID = -1003793414081
 
-REQUEST_DELAY = 8
+REQUEST_DELAY = 9
+MESSAGE_CHANNEL = "@xabarkino"
+
 
 # =========================================
 # TEXT DESIGN
@@ -65,14 +68,14 @@ USERS_FILE="/data/users.json"
 VIP_FILE="/data/vip.json"
 STATS_FILE="/data/stats.json"
 
-DB=load(DB_FILE,{"movies":{}, "next":1, "vip_only":[]})
+DB=load(DB_FILE,{"movies":{}, "next":1, "vip_only":[], "catalog":{}})
 
 # FIX crash if vip_only missing
 if "vip_only" not in DB:
     DB["vip_only"]=[]
 USERS=load(USERS_FILE,[])
 VIP=load(VIP_FILE,{})
-STATS=load(STATS_FILE,{"requests":[], "users":[]})
+STATS=load(STATS_FILE,{"requests":[], "users":[], "codes":[]})
 BANNED_FILE="/data/banned.json"
 BANNED=load(BANNED_FILE,[])
 
@@ -481,6 +484,36 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"{TXT_DONE}: {code}")
         return
 
+    
+    # MESSAGE FLOW
+    if context.user_data.get("msg_mode"):
+        mode=context.user_data.get("msg_mode")
+
+        # ADMIN REPLY TO USER
+        if mode=="admin":
+            target=context.user_data.get("msg_target")
+            try:
+                await update.message.copy(target)
+                await update.message.reply_text("✅ Sent")
+            except:
+                await update.message.reply_text("❌ Failed to send")
+            context.user_data.clear()
+            return
+
+        # USER SEND TO CHANNEL
+        if mode=="user":
+            try:
+                txt=update.message.text or ""
+                await context.bot.send_message(
+                    MESSAGE_CHANNEL,
+                    f"📩 Message from {uid}:\n{txt}"
+                )
+                await update.message.reply_text("✅ Sent to admin")
+            except:
+                await update.message.reply_text("❌ Failed")
+            context.user_data.clear()
+            return
+
     # SUB CHECK
     if not await check_sub(uid,context):
         await sub_msg(update)
@@ -493,7 +526,7 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
     now=time.time()
     vip_user=is_vip(uid)
 
-    delay = 15 if vip_user else 30
+    delay = 5 if vip_user else 10
     daily_limit = 30 if vip_user else 15
 
     # cooldown
@@ -525,6 +558,7 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
         return
 
     STATS["requests"].append(now)
+    STATS.setdefault("codes",[]).append((text,now))
     STATS["users"].append((uid,now))
     save()
 
@@ -538,6 +572,35 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
 
     delete_sec=21600 if is_vip(uid) else 900
     asyncio.create_task(auto_delete(context,uid,sent.message_id,delete_sec))
+
+
+# =========================================
+# CHANNEL POST CAPTURE (SAVE MOVIE NAME)
+# =========================================
+async def channel_post(update:Update,context:ContextTypes.DEFAULT_TYPE):
+    if not update.channel_post or not update.channel_post.chat.username:
+        return
+    if update.channel_post.chat.username.lower() != REQUIRED_CHANNEL.replace("@","").lower():
+        return
+
+    msg = update.channel_post
+    text = msg.text or msg.caption or ""
+    lines = text.split("\n")
+    title = lines[0].strip() if lines else "Unknown"
+
+    m=re.search(r'(?:Code|CODE|code)[: ]+(\S+)', text)
+    if not m:
+        return
+
+    code_val=m.group(1)
+
+    DB.setdefault("catalog",{})
+    DB["catalog"][code_val]={
+        "title":title,
+        "msg_id":msg.message_id,
+        "date":time.time()
+    }
+    save()
 
 # =========================================
 # AUTO DELETE
@@ -601,12 +664,93 @@ async def ban_user(update:Update,context:ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text(f"🚫 Banned: {uid}")
 
+async def unban_user(update:Update,context:ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id!=ADMIN_ID:
+        return
+
+    if not context.args:
+        await update.message.reply_text("Usage: /unban id")
+        return
+
+    uid=context.args[0]
+
+    if uid in BANNED:
+        BANNED.remove(uid)
+        save()
+        await update.message.reply_text(f"✅ Unbanned: {uid}")
+    else:
+        await update.message.reply_text("❌ User is not banned")
+
+
+
+# =========================================
+# MESSAGE SYSTEM
+# =========================================
+
+async def message_cmd(update:Update,context:ContextTypes.DEFAULT_TYPE):
+    uid=update.effective_user.id
+
+    # ADMIN MODE
+    if uid==ADMIN_ID and context.args:
+        try:
+            target=int(context.args[0])
+        except:
+            await update.message.reply_text("Invalid ID")
+            return
+
+        context.user_data["msg_mode"]="admin"
+        context.user_data["msg_target"]=target
+        await update.message.reply_text("Do you have message to user ?")
+        return
+
+    # USER MODE
+    context.user_data["msg_mode"]="user"
+    await update.message.reply_text("Do you have message to administator ?")
+
 # =========================================
 # RUN
 # =========================================
 
 async def post_init(app):
     asyncio.create_task(vip_checker(app))
+
+
+# =========================================
+# TOP COMMAND
+# =========================================
+async def top_cmd(update:Update,context:ContextTypes.DEFAULT_TYPE):
+    kb=InlineKeyboardMarkup([
+        [InlineKeyboardButton("Week",callback_data="top_week")],
+        [InlineKeyboardButton("Month",callback_data="top_month")]
+    ])
+    await update.message.reply_text("Choose one",reply_markup=kb)
+
+async def top_callback(update:Update,context:ContextTypes.DEFAULT_TYPE):
+    q=update.callback_query
+    await q.answer()
+
+    period = 7 if "week" in q.data else 30
+    now=time.time()
+    limit=now-(period*86400)
+
+    stats={}
+    for code_val,t in STATS.get("codes",[]):
+        if t>=limit:
+            stats[code_val]=stats.get(code_val,0)+1
+
+    if not stats:
+        await q.message.edit_text("No data")
+        return
+
+    top=sorted(stats.items(), key=lambda x:x[1], reverse=True)[:10]
+
+    text = "Top of {} 🔝\n\n".format("Week" if period==7 else "Month")
+
+    for i,(c,count) in enumerate(top,1):
+        title = DB.get("catalog",{}).get(c,{}).get("title","Unknown")
+        text += f"{i}. {title} ({c}) - {count} times\n\n"
+
+    await q.message.edit_text(text)
 
 def main():
 
@@ -623,12 +767,17 @@ def main():
     app.add_handler(CommandHandler("done",done))
     app.add_handler(CommandHandler("delete",delete_movie))
     app.add_handler(CommandHandler("ban",ban_user))
+    app.add_handler(CommandHandler("unban",unban_user))
+    app.add_handler(CommandHandler("message",message_cmd))
+    app.add_handler(CommandHandler("top",top_cmd))
 
     app.add_handler(PreCheckoutQueryHandler(precheckout))
     app.add_handler(MessageHandler(filters.SUCCESSFUL_PAYMENT,successful_payment))
 
+    app.add_handler(CallbackQueryHandler(top_callback,pattern="^top_"))
     app.add_handler(CallbackQueryHandler(callbacks))
     app.add_handler(MessageHandler(filters.ALL,msg))
+    app.add_handler(MessageHandler(filters.ChatType.CHANNEL,channel_post))
 
     print("BOT RUNNING...")
     app.run_polling()
