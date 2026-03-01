@@ -481,6 +481,7 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
     if text:
         text = text.strip().replace(" ", "").replace("\n","").replace("\r","")
 
+    if text and text.startswith("/"): return
 
     
     # EDITTITLE FLOW STEP1
@@ -886,35 +887,34 @@ async def addtitle(update:Update,context:ContextTypes.DEFAULT_TYPE):
 async def edittitle(update:Update,context:ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id!=ADMIN_ID:
         return
-    context.user_data["edit_step"]="code"
-    await update.message.reply_text("Send movie code to edit")
-
-
-
 
 # =========================================
 # TITLES LIST (ADMIN)
 # =========================================
-async def titles(update:Update,context:ContextTypes.DEFAULT_TYPE):
-    if update.effective_user.id!=ADMIN_ID:
+async def titles(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id != ADMIN_ID:
         return
 
-    catalog = DB.get("catalog",{})
+    catalog = DB.get("catalog", {})
+
     if not catalog:
-        await update.message.reply_text("No titles saved")
+        await update.message.reply_text("❌ No titles found")
         return
 
-    text = "🎬 <b>Saved titles</b>\n\n"
-    for code_val,data in sorted(catalog.items(), key=lambda x: float(x[0]) if x[0].replace('.','',1).isdigit() else x[0]):
-        title = data.get("title","Unknown")
-        text += f"{code_val} → {title}\n"
+    text = "🎬 <b>All Movie Titles</b>
 
-    if len(text) > 4000:
-        chunks=[text[i:i+4000] for i in range(0,len(text),4000)]
-        for c in chunks:
-            await update.message.reply_text(c,parse_mode="HTML")
-    else:
-        await update.message.reply_text(text,parse_mode="HTML")
+"
+
+    for code, data in sorted(catalog.items(), key=lambda x: x[0]):
+        title = data.get("title", "No title")
+        text += f"🔢 <b>{code}</b> — {title}
+"
+
+    await update.message.reply_text(text, parse_mode="HTML")
+
+    context.user_data["edit_step"]="code"
+    await update.message.reply_text("Send movie code to edit")
+
 
 # =========================================
 # RUN
@@ -984,8 +984,8 @@ def main():
     app.add_handler(CommandHandler("message",message_cmd))
     app.add_handler(CommandHandler("top",top_cmd))
     app.add_handler(CommandHandler("addtitle",addtitle))
-    app.add_handler(CommandHandler("titles",titles))
     app.add_handler(CommandHandler("edittitle",edittitle))
+    app.add_handler(CommandHandler("titles", titles))
     app.add_handler(CommandHandler("getdb", getdb))
     app.add_handler(CommandHandler("loaddb", loaddb))
 
