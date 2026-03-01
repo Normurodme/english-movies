@@ -900,65 +900,43 @@ async def post_init(app):
 
 
 # =========================================
-# TOP COMMAND (UPDATED DESIGN)
+# TOP COMMAND
 # =========================================
 async def top_cmd(update:Update,context:ContextTypes.DEFAULT_TYPE):
     kb = InlineKeyboardMarkup([
         [
-            InlineKeyboardButton("📅 Week", callback_data="top_week"),
-            InlineKeyboardButton("🗓 Month", callback_data="top_month")
+            InlineKeyboardButton("Week", callback_data="top_week"),
+            InlineKeyboardButton("Month", callback_data="top_month")
         ]
     ])
-    await update.message.reply_text(
-        "🏆 <b>TOP Statistics</b>\n\nChoose period:"
-Choose period:",
-        reply_markup=kb,
-        parse_mode="HTML"
-    )
+    await update.message.reply_text("Choose one",reply_markup=kb)
 
 async def top_callback(update:Update,context:ContextTypes.DEFAULT_TYPE):
-    q = update.callback_query
+    q=update.callback_query
     await q.answer()
 
     period = 7 if "week" in q.data else 30
-    now = time.time()
-    limit = now - (period * 86400)
+    now=time.time()
+    limit=now-(period*86400)
 
-    stats = {}
-    for code_val, t in STATS.get("codes", []):
-        if t >= limit:
-            stats[code_val] = stats.get(code_val, 0) + 1
+    stats={}
+    for code_val,t in STATS.get("codes",[]):
+        if t>=limit:
+            stats[code_val]=stats.get(code_val,0)+1
 
     if not stats:
-        await q.message.edit_text("📭 <b>No statistics yet</b>", parse_mode="HTML")
+        await q.message.edit_text("No data")
         return
 
-    top = sorted(stats.items(), key=lambda x: x[1], reverse=True)[:10]
+    top=sorted(stats.items(), key=lambda x:x[1], reverse=True)[:10]
 
-    period_name = "WEEK" if period == 7 else "MONTH"
+    text = "Top of {} 🔝\n\n".format("Week" if period==7 else "Month")
 
-    text = f"🏆 <b>TOP 10 OF {period_name}</b>
-"
-    text += "━━━━━━━━━━━━━━━
+    for i,(c,count) in enumerate(top,1):
+        title = DB.get("catalog",{}).get(c,{}).get("title","Unknown")
+        text += f"{i}. {title} ({c}) - {count} times\n\n"
 
-"
-
-    for i, (c, count) in enumerate(top, 1):
-        title = DB.get("catalog", {}).get(c, {}).get("title", "Unknown")
-
-        text += (
-            f"<b>{i}.</b> {title}
-"
-            f"🎬 Code: <code>{c}</code>
-"
-            f"🔥 Requests: <b>{count}</b>
-
-"
-        )
-
-    text += "━━━━━━━━━━━━━━━"
-
-    await q.message.edit_text(text, parse_mode="HTML")
+    await q.message.edit_text(text)
 
 def main():
 
