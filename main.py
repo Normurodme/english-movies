@@ -3,7 +3,6 @@ import json
 import asyncio
 import time
 import re
-import sys
 from datetime import datetime, timedelta
 
 from telegram import *
@@ -425,9 +424,7 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("You are banned 🚫")
         return
 
-    text = update.message.text if update.message.text else None
-    if text:
-        text = text.strip().replace(" ", "").replace("\n", "").replace("\r", "")
+    text=update.message.text.strip() if update.message.text else None
 
     if text and text.startswith("/"): return
 
@@ -562,7 +559,7 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
 
     # VIP PROTECTION
     vip_list = set(str(x) for x in DB.get("vip_only",[]))
-    if text in vip_list and not is_vip(uid):
+    if str(text) in vip_list and not is_vip(uid):
         await update.message.reply_text(TXT_VIP_ONLY)
         return
 
@@ -734,42 +731,36 @@ async def getdb(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # =========================================
 # LOAD DB FROM FILE (ADMIN)
 # =========================================
+
+# =========================================
+# LOAD DB FROM FILE (ADMIN) — FIXED
+# =========================================
 async def loaddb(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != ADMIN_ID:
         return
 
     if not update.message.document:
-        await update.message.reply_text("Send DB json file")
+        await update.message.reply_text("❌ Send JSON file as document")
         return
-
-    file = await update.message.document.get_file()
-    path = "new_db.json"
-    await file.download_to_drive(path)
 
     try:
-        with open(path) as f:
-            newdb=json.load(f)
+        file = await update.message.document.get_file()
+        await file.download_to_drive(DB_FILE)
+
+        with open(DB_FILE) as f:
+            data = json.load(f)
+
+        if "movies" not in data:
+            raise Exception("Invalid DB structure")
 
         global DB
-        DB=newdb
+        DB = data
         save()
 
-        await update.message.reply_text("✅ DB updated successfully")
+        await update.message.reply_text("✅ DB loaded successfully")
 
     except Exception as e:
-        await update.message.reply_text(f"Error: {e}")
-
-
-
-# =========================================
-# RESTART BOT (ADMIN)
-# =========================================
-async def restart(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_user.id != ADMIN_ID:
-        return
-
-    await update.message.reply_text("♻️ Restarting bot...")
-    os.execv(sys.executable, ["python"] + sys.argv)
+        await update.message.reply_text(f"❌ Load failed: {e}")
 
 # =========================================
 # RUN
@@ -836,7 +827,6 @@ def main():
     app.add_handler(CommandHandler("top",top_cmd))
     app.add_handler(CommandHandler("getdb", getdb))
     app.add_handler(CommandHandler("loaddb", loaddb))
-    app.add_handler(CommandHandler("restart", restart))
 
     app.add_handler(PreCheckoutQueryHandler(precheckout))
     app.add_handler(MessageHandler(filters.SUCCESSFUL_PAYMENT,successful_payment))
@@ -850,4 +840,4 @@ def main():
     app.run_polling()
 
 if __name__=="__main__":
-    main()
+    main()'
