@@ -2,6 +2,7 @@ import os
 import json
 import asyncio
 import time
+import re
 from datetime import datetime, timedelta
 
 from telegram import *
@@ -67,14 +68,14 @@ USERS_FILE="/data/users.json"
 VIP_FILE="/data/vip.json"
 STATS_FILE="/data/stats.json"
 
-DB=load(DB_FILE,{"movies":{}, "next":1, "vip_only":[]})
+DB=load(DB_FILE,{"movies":{}, "next":1, "vip_only":[], "catalog":{}})
 
 # FIX crash if vip_only missing
 if "vip_only" not in DB:
     DB["vip_only"]=[]
 USERS=load(USERS_FILE,[])
 VIP=load(VIP_FILE,{})
-STATS=load(STATS_FILE,{"requests":[], "users":[]})
+STATS=load(STATS_FILE,{"requests":[], "users":[], "codes":[]})
 BANNED_FILE="/data/banned.json"
 BANNED=load(BANNED_FILE,[])
 
@@ -492,8 +493,7 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
         if mode=="admin":
             target=context.user_data.get("msg_target")
             try:
-                await context.bot.send_message(target, f"📩 From Admin :
-{update.message.text}")
+                await update.message.copy(target)
                 await update.message.reply_text("✅ Sent")
             except:
                 await update.message.reply_text("❌ Failed to send")
@@ -506,8 +506,7 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
                 txt=update.message.text or ""
                 await context.bot.send_message(
                     MESSAGE_CHANNEL,
-                    f"📥 From : {uid}
-{txt}"
+                    f"📩 Message from {uid}:\n{txt}"
                 )
                 await update.message.reply_text("✅ Sent to admin")
             except:
@@ -559,6 +558,7 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
         return
 
     STATS["requests"].append(now)
+    STATS.setdefault("codes",[]).append((text,now))
     STATS["users"].append((uid,now))
     save()
 
@@ -572,6 +572,35 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
 
     delete_sec=21600 if is_vip(uid) else 900
     asyncio.create_task(auto_delete(context,uid,sent.message_id,delete_sec))
+
+
+# =========================================
+# CHANNEL POST CAPTURE (SAVE MOVIE NAME)
+# =========================================
+async def channel_post(update:Update,context:ContextTypes.DEFAULT_TYPE):
+    if not update.channel_post or not update.channel_post.chat.username:
+        return
+    if update.channel_post.chat.username.lower() != REQUIRED_CHANNEL.replace("@","").lower():
+        return
+
+    msg = update.channel_post
+    text = msg.text or msg.caption or ""
+    lines = text.split("\n")
+    title = lines[0].strip() if lines else "Unknown"
+
+    m=re.search(r'(?:Code|CODE|code)[: ]+(\S+)', text)
+    if not m:
+        return
+
+    code_val=m.group(1)
+
+    DB.setdefault("catalog",{})
+    DB["catalog"][code_val]={
+        "title":title,
+        "msg_id":msg.message_id,
+        "date":time.time()
+    }
+    save()
 
 # =========================================
 # AUTO DELETE
@@ -685,6 +714,44 @@ async def message_cmd(update:Update,context:ContextTypes.DEFAULT_TYPE):
 async def post_init(app):
     asyncio.create_task(vip_checker(app))
 
+
+# =========================================
+# TOP COMMAND
+# =========================================
+async def top_cmd(update:Update,context:ContextTypes.DEFAULT_TYPE):
+    kb=InlineKeyboardMarkup([
+        [InlineKeyboardButton("Week",callback_data="top_week")],
+        [InlineKeyboardButton("Month",callback_data="top_month")]
+    ])
+    await update.message.reply_text("Choose one",reply_markup=kb)
+
+async def top_callback(update:Update,context:ContextTypes.DEFAULT_TYPE):
+    q=update.callback_query
+    await q.answer()
+
+    period = 7 if "week" in q.data else 30
+    now=time.time()
+    limit=now-(period*86400)
+
+    stats={}
+    for code_val,t in STATS.get("codes",[]):
+        if t>=limit:
+            stats[code_val]=stats.get(code_val,0)+1
+
+    if not stats:
+        await q.message.edit_text("No data")
+        return
+
+    top=sorted(stats.items(), key=lambda x:x[1], reverse=True)[:10]
+
+    text = "Top of {} 🔝\n\n".format("Week" if period==7 else "Month")
+
+    for i,(c,count) in enumerate(top,1):
+        title = DB.get("catalog",{}).get(c,{}).get("title","Unknown")
+        text += f"{i}. {title} ({c}) - {count} times\n\n"
+
+    await q.message.edit_text(text)
+
 def main():
 
     app=ApplicationBuilder().token(TOKEN).post_init(post_init).build()
@@ -702,12 +769,15 @@ def main():
     app.add_handler(CommandHandler("ban",ban_user))
     app.add_handler(CommandHandler("unban",unban_user))
     app.add_handler(CommandHandler("message",message_cmd))
+    app.add_handler(CommandHandler("top",top_cmd))
 
     app.add_handler(PreCheckoutQueryHandler(precheckout))
     app.add_handler(MessageHandler(filters.SUCCESSFUL_PAYMENT,successful_payment))
 
+    app.add_handler(CallbackQueryHandler(top_callback,pattern="^top_"))
     app.add_handler(CallbackQueryHandler(callbacks))
     app.add_handler(MessageHandler(filters.ALL,msg))
+    app.add_handler(MessageHandler(filters.ChatType.CHANNEL,channel_post))
 
     print("BOT RUNNING...")
     app.run_polling()
