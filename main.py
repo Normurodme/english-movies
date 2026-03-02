@@ -595,40 +595,56 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
         return
 
 
-    # UPLOAD
-    if uid==ADMIN_ID and context.user_data.get("upload") and (update.message.video or update.message.document):
+    
+    # ================= UPLOAD FIXED =================
+    if uid==ADMIN_ID and context.user_data.get("upload") and update.message.effective_attachment:
 
-        if context.user_data["upload"]=="movie":
-            code=str(DB["next"])
-            DB["next"]+=1
-        else:
-            code=f"{SERIAL_CODE}.{SERIAL_PART}"
-            SERIAL_PART+=1
+        try:
 
-        caption = f"🔒Code: {code}" if context.user_data.get("vip") else f"Code: {code}"
+            if context.user_data["upload"]=="movie":
+                code=str(DB["next"])
+                DB["next"]+=1
+            else:
+                code=f"{SERIAL_CODE}.{SERIAL_PART}"
+                SERIAL_PART+=1
 
-        sent=await context.bot.copy_message(
-            STORAGE_CHANNEL_ID,
-            update.effective_chat.id,
-            update.message.message_id,
-            caption=caption
-        )
+            caption = f"🔒Code: {code}" if context.user_data.get("vip") else f"Code: {code}"
 
-        DB["movies"][code]=sent.message_id
+            sent = await context.bot.copy_message(
+                chat_id=STORAGE_CHANNEL_ID,
+                from_chat_id=update.effective_chat.id,
+                message_id=update.message.message_id
+            )
 
-        if context.user_data.get("vip"):
-            DB.setdefault("vip_only",[])
-            if code not in DB["vip_only"]:
-                DB["vip_only"].append(code)
+            try:
+                await context.bot.edit_message_caption(
+                    chat_id=STORAGE_CHANNEL_ID,
+                    message_id=sent.message_id,
+                    caption=caption
+                )
+            except:
+                pass
 
-        # ===== FIX: SERIAL MODE CLEAR BO'LMAYDI =====
-        if context.user_data["upload"]=="movie":
-            context.user_data.clear()
+            DB["movies"][code]=sent.message_id
 
-        save()
+            if context.user_data.get("vip"):
+                DB.setdefault("vip_only",[])
+                if code not in DB["vip_only"]:
+                    DB["vip_only"].append(code)
 
-        await update.message.reply_text(f"{TXT_DONE}: {code}")
+            if context.user_data["upload"]=="movie":
+                context.user_data.clear()
+
+            save()
+
+            await update.message.reply_text(f"{TXT_DONE}: {code}")
+
+        except Exception as e:
+            await update.message.reply_text(f"❌ Upload error:\n{e}")
+
         return
+    # =================================================
+
 
     
     # MESSAGE FLOW
@@ -1041,8 +1057,8 @@ def main():
 
     app.add_handler(CallbackQueryHandler(top_callback,pattern="^top_"))
     app.add_handler(CallbackQueryHandler(callbacks))
+    app.add_handler(MessageHandler(filters.ALL,msg))
     app.add_handler(MessageHandler(filters.ChatType.CHANNEL,channel_post))
-    app.add_handler(MessageHandler(filters.ALL & ~filters.ChatType.CHANNEL, msg))
 
     print("BOT RUNNING...")
     app.run_polling()
