@@ -1137,4 +1137,4 @@ def main():
     app.run_polling(close_loop=False)
 
 if __name__=="__main__":
-    main(
+    main()
