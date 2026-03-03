@@ -208,6 +208,7 @@ def add_referral(referrer_id, new_user_id):
     referrer_id = str(referrer_id)
     new_user_id = str(new_user_id)
 
+    # Absolute protection against duplicate counting
     if new_user_id in USED_REF:
         return
 
@@ -221,14 +222,25 @@ def add_referral(referrer_id, new_user_id):
     count = REFERRALS[referrer_id]
     now = datetime.utcnow()
 
-    # 5 referrals → 1 day VIP
-    if count == 5:
-        expire = now + timedelta(days=1)
-        VIP[referrer_id] = expire.isoformat()
+    reward_days = 0
 
-    # 10 referrals → 3 days VIP
-    if count == 10:
-        expire = now + timedelta(days=3)
+    if count % 5 == 0:
+        if count % 10 == 0:
+            reward_days = 3
+        else:
+            reward_days = 1
+
+    if reward_days > 0:
+        current_exp = VIP.get(referrer_id)
+        if current_exp:
+            current_exp_dt = datetime.fromisoformat(current_exp)
+            if current_exp_dt > now:
+                expire = current_exp_dt + timedelta(days=reward_days)
+            else:
+                expire = now + timedelta(days=reward_days)
+        else:
+            expire = now + timedelta(days=reward_days)
+
         VIP[referrer_id] = expire.isoformat()
 
     save()
