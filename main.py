@@ -503,7 +503,7 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
     if text:
         text = text.strip().replace(" ", "").replace("\n","").replace("\r","")
 
- if text and text.startswith("/"): 
+    if text and text.startswith("/"): 
         return
 
 
@@ -551,33 +551,6 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
             f"✅ {code_val} new title - {new_title}"
         )
         return
-
-# STEP 2 — NEW TITLE
-if uid==ADMIN_ID and context.user_data.get("edit_step")=="title":
-
-    new_title = update.message.text.strip()
-    code_val = context.user_data.get("edit_code")
-
-    if not code_val:
-        context.user_data.clear()
-        return
-
-    DB.setdefault("catalog", {})
-    DB["catalog"].setdefault(code_val, {})
-
-    DB["catalog"][code_val]["title"] = new_title
-    DB["catalog"][code_val].setdefault("msg_id", None)
-    DB["catalog"][code_val].setdefault("date", time.time())
-
-    save()
-    context.user_data.clear()
-
-    await update.message.reply_text(
-        f"✅ {code_val} new title - {new_title}"
-    )
-    return
-
-# ===================================================
 
 
     # ADDTITLE FLOW
