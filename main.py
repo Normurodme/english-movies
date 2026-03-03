@@ -506,29 +506,52 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
     if text and text.startswith("/"): return
 
     
-    # EDITTITLE FLOW STEP1
-    if uid==ADMIN_ID and context.user_data.get("edit_step")=="code":
-        code_val=update.message.text.strip()
-        context.user_data["edit_code"]=code_val
-        context.user_data["edit_step"]="title"
-        await update.message.reply_text("Send new title")
+    # ================= EDITTITLE FLOW =================
+
+# STEP 1 — CODE
+if uid==ADMIN_ID and context.user_data.get("edit_step")=="code":
+
+    code_val = update.message.text.strip()
+
+    if code_val not in DB.get("catalog", {}):
+        await update.message.reply_text("❌ Bunday kod topilmadi")
         return
 
-    # EDITTITLE FLOW STEP2
-    if uid==ADMIN_ID and context.user_data.get("edit_step")=="title":
-        title=update.message.text.strip()
-        code_val=context.user_data["edit_code"]
+    context.user_data["edit_code"] = code_val
+    context.user_data["edit_step"] = "title"
 
-        DB.setdefault("catalog",{})
-        DB["catalog"].setdefault(code_val,{})
-        DB["catalog"][code_val]["title"]=title
-        DB["catalog"][code_val].setdefault("msg_id",None)
-        DB["catalog"][code_val].setdefault("date",time.time())
+    await update.message.reply_text(
+        f"{code_val} uchun yangi title jo'nating"
+    )
+    return
 
-        save()
+
+# STEP 2 — NEW TITLE
+if uid==ADMIN_ID and context.user_data.get("edit_step")=="title":
+
+    new_title = update.message.text.strip()
+    code_val = context.user_data.get("edit_code")
+
+    if not code_val:
         context.user_data.clear()
-        await update.message.reply_text(f"✅ {code_val} → {title}")
         return
+
+    DB.setdefault("catalog", {})
+    DB["catalog"].setdefault(code_val, {})
+
+    DB["catalog"][code_val]["title"] = new_title
+    DB["catalog"][code_val].setdefault("msg_id", None)
+    DB["catalog"][code_val].setdefault("date", time.time())
+
+    save()
+    context.user_data.clear()
+
+    await update.message.reply_text(
+        f"✅ {code_val} new title - {new_title}"
+    )
+    return
+
+# ===================================================
 
 
     # ADDTITLE FLOW
@@ -942,6 +965,13 @@ async def edittitle(update:Update,context:ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id!=ADMIN_ID:
         return
 
+    context.user_data.clear()
+    context.user_data["edit_step"] = "code"
+
+    await update.message.reply_text(
+        "Edit qilmoqchi bo'lgan kino raqamini jo'nating\n\n"
+        "Masalan: 76 , 7 , 81.2 , 7.14"
+    )
 # =========================================
 # TITLES LIST (ADMIN)
 # =========================================
