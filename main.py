@@ -512,9 +512,11 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
     # STEP 1 — CODE
     if uid==ADMIN_ID and context.user_data.get("edit_step")=="code":
 
-        code_val = update.message.text.strip()
+        code_val = str(update.message.text.strip())
 
-        if code_val not in DB.get("catalog", {}):
+        catalog = {str(k): v for k,v in DB.get("catalog", {}).items()}
+
+        if code_val not in catalog:
             await update.message.reply_text("❌ Bunday kod topilmadi")
             return
 
@@ -551,6 +553,8 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
             f"✅ {code_val} new title - {new_title}"
         )
         return
+
+
 
 
     # ADDTITLE FLOW
