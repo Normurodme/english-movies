@@ -142,16 +142,19 @@ async def vip_checker(app):
 
 # =========================================
 
-    # SEARCH FLOW
+    # SEARCH FLOW (TITLE ONLY — EVEN IF NUMBER)
     if context.user_data.get("search_mode"):
-        keyword = update.message.text.strip().lower()
+
+        query = update.message.text.strip()
         context.user_data.pop("search_mode", None)
 
         catalog = DB.get("catalog", {})
         results = []
 
+        keyword = query.lower()
+
         for code_val, data in catalog.items():
-            title = data.get("title","")
+            title = data.get("title", "")
             if keyword in title.lower():
                 results.append((code_val, title))
 
@@ -161,7 +164,7 @@ async def vip_checker(app):
 
         text = "🔎 <b>Results :</b>\n\n"
 
-        for i,(c,title) in enumerate(results,1):
+        for i, (c, title) in enumerate(results, 1):
             text += f"{i}. {title}  -  <b>{c}</b>\n\n"
 
         await update.message.reply_text(text, parse_mode="HTML")
@@ -1028,17 +1031,13 @@ async def titles(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 # =========================================
-# SEARCH SYSTEM
-# =========================================
-
-
-# =========================================
-# SEARCH SYSTEM (INTERACTIVE)
+# SEARCH SYSTEM (TITLE ONLY)
 # =========================================
 
 async def search(update:Update, context:ContextTypes.DEFAULT_TYPE):
     context.user_data["search_mode"] = True
     await update.message.reply_text("Send a movie name")
+
 
 # =========================================
 # RUN
