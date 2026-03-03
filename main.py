@@ -650,7 +650,9 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
 
     
     # ================= UPLOAD FIXED =================
-    if uid==ADMIN_ID and context.user_data.get("upload") and update.message.effective_attachment:
+    if uid == ADMIN_ID and context.user_data.get("upload") and (
+    update.message.video or update.message.document
+):
 
         try:
 
@@ -1128,8 +1130,8 @@ def main():
 
     app.add_handler(CallbackQueryHandler(top_callback,pattern="^top_"))
     app.add_handler(CallbackQueryHandler(callbacks))
-    app.add_handler(MessageHandler(filters.ALL,msg))
     app.add_handler(MessageHandler(filters.ChatType.CHANNEL,channel_post))
+    app.add_handler(MessageHandler(filters.ALL,msg))
 
     print("BOT RUNNING...")
     app.run_polling()
