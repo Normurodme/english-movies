@@ -532,8 +532,6 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(text_out, parse_mode="HTML")
         return
 
-        return
-
 
     # ================= EDITTITLE FLOW =================
 
