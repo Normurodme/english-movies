@@ -99,6 +99,28 @@ def save():
 # STATES
 # =========================================
 
+# ================= OPTIMIZATION =================
+
+DIRTY_STATS = False
+SUB_CACHE = {}  # {uid: (is_member, expire_time)}
+
+def mark_stats_dirty():
+    global DIRTY_STATS
+    DIRTY_STATS = True
+
+async def autosave_stats_loop():
+    global DIRTY_STATS
+    while True:
+        if DIRTY_STATS:
+            limit = time.time() - 86400 * 31
+            STATS["requests"] = [t for t in STATS["requests"] if t > limit]
+            STATS["users"] = [(u, t) for u, t in STATS["users"] if t > limit]
+            STATS["codes"] = [(c, t) for c, t in STATS["codes"] if t > limit]
+            save()
+            DIRTY_STATS = False
+        await asyncio.sleep(30)
+
+
 SERIAL_MODE=False
 SERIAL_CODE=None
 SERIAL_PART=1
@@ -144,11 +166,21 @@ async def vip_checker(app):
 # =========================================
 
 async def check_sub(uid,context):
+    now = time.time()
+
+    if uid in SUB_CACHE:
+        is_member, expire = SUB_CACHE[uid]
+        if now < expire:
+            return is_member
+
     try:
-        m=await context.bot.get_chat_member(REQUIRED_CHANNEL,uid)
-        return m.status in ["member","administrator","creator"]
+        m = await context.bot.get_chat_member(REQUIRED_CHANNEL, uid)
+        is_member = m.status in ["member","administrator","creator"]
     except:
-        return False
+        is_member = False
+
+    SUB_CACHE[uid] = (is_member, now + 420)
+    return is_member
 
 async def sub_msg(update):
     kb=InlineKeyboardMarkup([
@@ -743,7 +775,7 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
     now=time.time()
     vip_user=is_vip(uid)
 
-    delay = 5 if vip_user else 10
+    delay = 5 if vip_user else 5
     daily_limit = 30 if vip_user else 15
 
     # cooldown
@@ -778,7 +810,7 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
     STATS["requests"].append(now)
     STATS.setdefault("codes",[]).append((text,now))
     STATS["users"].append((uid,now))
-    save()
+    mark_stats_dirty()
 
     sent=await context.bot.copy_message(
         uid,
@@ -1045,6 +1077,7 @@ async def search(update:Update, context:ContextTypes.DEFAULT_TYPE):
 
 async def post_init(app):
     asyncio.create_task(vip_checker(app))
+    asyncio.create_task(autosave_stats_loop())
 
 
 # =========================================
