@@ -246,17 +246,17 @@ async def start(update:Update,context:ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("You are banned 🚫")
         return
 
-    # Referral handling
-    if context.args:
-        try:
-            referrer = int(context.args[0])
-            if uid not in USERS:
-                add_referral(referrer, uid)
-        except:
-            pass
-
     if uid not in USERS:
         USERS.append(uid)
+
+        # Referral handling ONLY for brand new users
+        if context.args:
+            try:
+                referrer = int(context.args[0])
+                add_referral(referrer, uid)
+            except:
+                pass
+
         save()
 
     if not await check_sub(uid,context):
@@ -459,7 +459,15 @@ async def callbacks(update:Update,context:ContextTypes.DEFAULT_TYPE):
 
 
     if q.data=="check":
-        if await check_sub(q.from_user.id,context):
+        try:
+            m = await context.bot.get_chat_member(REQUIRED_CHANNEL, q.from_user.id)
+            is_member = m.status in ["member","administrator","creator"]
+        except:
+            is_member = False
+
+        SUB_CACHE.pop(q.from_user.id, None)
+
+        if is_member:
             await q.message.edit_text("✅ Confirmed")
         else:
             await q.answer("Join channel",show_alert=True)
