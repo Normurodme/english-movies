@@ -248,16 +248,15 @@ async def start(update:Update,context:ContextTypes.DEFAULT_TYPE):
 
     if uid not in USERS:
         USERS.append(uid)
-
-        # Referral handling ONLY for brand new users
-        if context.args:
-            try:
-                referrer = int(context.args[0])
-                add_referral(referrer, uid)
-            except:
-                pass
-
         save()
+
+    # store pending referral (do NOT count yet)
+    if context.args:
+        try:
+            referrer = int(context.args[0])
+            context.user_data["pending_ref"] = referrer
+        except:
+            pass
 
     if not await check_sub(uid,context):
         await sub_msg(update)
@@ -468,6 +467,13 @@ async def callbacks(update:Update,context:ContextTypes.DEFAULT_TYPE):
         SUB_CACHE.pop(q.from_user.id, None)
 
         if is_member:
+
+            # CONFIRM REFERRAL ONLY AFTER CHANNEL JOIN
+            referrer = context.user_data.get("pending_ref")
+            if referrer and str(q.from_user.id) not in USED_REF and referrer != q.from_user.id:
+                add_referral(referrer, q.from_user.id)
+                context.user_data.pop("pending_ref", None)
+
             await q.message.edit_text("✅ Confirmed")
         else:
             await q.answer("Join channel",show_alert=True)
