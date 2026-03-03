@@ -68,7 +68,12 @@ USERS_FILE="/data/users.json"
 VIP_FILE="/data/vip.json"
 STATS_FILE="/data/stats.json"
 
-DB=load(DB_FILE,{"movies":{}, "next":1, "next_title":1, "vip_only":[], "catalog":{}})
+DB=load(DB_FILE,{"movies":{}, "next":1, "next_title":1, "vip_only":[], "catalog":{}, "ref_meta":{}})
+
+# Ensure referral meta exists inside DB
+if "ref_meta" not in DB:
+    DB["ref_meta"] = {}
+
 
 # FIX crash if vip_only missing
 if "vip_only" not in DB:
@@ -204,26 +209,28 @@ def save_ref():
     save_file(REF_FILE, REFERRALS)
     save_file(USED_REF_FILE, USED_REF)
 
+
 def add_referral(referrer_id, new_user_id):
     referrer_id = str(referrer_id)
     new_user_id = str(new_user_id)
 
-    # Absolute protection against duplicate counting
-    if new_user_id in USED_REF:
+    # HARD protection: check DB ref_meta
+    if new_user_id in DB.get("ref_meta", {}):
         return
 
     if referrer_id == new_user_id:
         return
 
+    DB.setdefault("ref_meta", {})
+    DB["ref_meta"][new_user_id] = referrer_id
+
     REFERRALS.setdefault(referrer_id, 0)
     REFERRALS[referrer_id] += 1
-    USED_REF[new_user_id] = referrer_id
 
     count = REFERRALS[referrer_id]
     now = datetime.utcnow()
 
     reward_days = 0
-
     if count % 5 == 0:
         if count % 10 == 0:
             reward_days = 3
@@ -245,6 +252,7 @@ def add_referral(referrer_id, new_user_id):
 
     save()
     save_ref()
+
 
 # =========================================
 # START
@@ -1170,6 +1178,44 @@ async def referral(update:Update, context:ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text(text)
 
+
+# =========================================
+# ADMIN VIP USER MANAGEMENT
+# =========================================
+
+async def addvip_user(update:Update,context:ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id != ADMIN_ID:
+        return
+
+    if not context.args:
+        await update.message.reply_text("Usage: /addvip user_id")
+        return
+
+    uid = str(context.args[0])
+    expire = datetime.utcnow() + timedelta(days=30)
+    VIP[uid] = expire.isoformat()
+    save()
+
+    await update.message.reply_text(f"👑 User {uid} added to VIP (30 days)")
+
+
+async def removevip_user(update:Update,context:ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id != ADMIN_ID:
+        return
+
+    if not context.args:
+        await update.message.reply_text("Usage: /removevip user_id")
+        return
+
+    uid = str(context.args[0])
+
+    if uid in VIP:
+        del VIP[uid]
+        save()
+        await update.message.reply_text(f"❌ User {uid} removed from VIP")
+    else:
+        await update.message.reply_text("User is not VIP")
+
 # =========================================
 # RUN
 # =========================================
@@ -1245,7 +1291,9 @@ def main():
     app.add_handler(CommandHandler("done",done))
     app.add_handler(CommandHandler("delete",delete_movie))
     app.add_handler(CommandHandler("addvip",addvip))
+    app.add_handler(CommandHandler("addvip",addvip_user))
     app.add_handler(CommandHandler("delvip",delvip))
+    app.add_handler(CommandHandler("removevip",removevip_user))
     app.add_handler(CommandHandler("ban",ban_user))
     app.add_handler(CommandHandler("unban",unban_user))
     app.add_handler(CommandHandler("message",message_cmd))
