@@ -650,7 +650,9 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
 
     
     # ================= UPLOAD FIXED =================
-    if uid == ADMIN_ID and context.user_data.get("upload") and update.message.effective_attachment:
+ if uid == ADMIN_ID and context.user_data.get("upload") and (
+    update.message.video or update.message.document
+):
 
         try:
 
@@ -1135,4 +1137,4 @@ def main():
     app.run_polling()
 
 if __name__=="__main__":
-    main()
+    main(
