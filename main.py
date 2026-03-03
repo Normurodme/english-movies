@@ -1216,6 +1216,44 @@ async def removevip_user(update:Update,context:ContextTypes.DEFAULT_TYPE):
     else:
         await update.message.reply_text("User is not VIP")
 
+
+# =========================================
+# ADMIN USER VIP COMMANDS (SAFE)
+# =========================================
+
+async def addvips(update:Update,context:ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id != ADMIN_ID:
+        return
+
+    if not context.args:
+        await update.message.reply_text("Usage: /addvips user_id")
+        return
+
+    uid = str(context.args[0])
+    expire = datetime.utcnow() + timedelta(days=30)
+    VIP[uid] = expire.isoformat()
+    save()
+
+    await update.message.reply_text(f"👑 User {uid} added to VIP (30 days)")
+
+
+async def removevips(update:Update,context:ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id != ADMIN_ID:
+        return
+
+    if not context.args:
+        await update.message.reply_text("Usage: /removevips user_id")
+        return
+
+    uid = str(context.args[0])
+
+    if uid in VIP:
+        del VIP[uid]
+        save()
+        await update.message.reply_text(f"❌ User {uid} removed from VIP")
+    else:
+        await update.message.reply_text("User is not VIP")
+
 # =========================================
 # RUN
 # =========================================
@@ -1291,9 +1329,9 @@ def main():
     app.add_handler(CommandHandler("done",done))
     app.add_handler(CommandHandler("delete",delete_movie))
     app.add_handler(CommandHandler("addvip",addvip))
-    app.add_handler(CommandHandler("addvip",addvip_user))
+    
     app.add_handler(CommandHandler("delvip",delvip))
-    app.add_handler(CommandHandler("removevip",removevip_user))
+    
     app.add_handler(CommandHandler("ban",ban_user))
     app.add_handler(CommandHandler("unban",unban_user))
     app.add_handler(CommandHandler("message",message_cmd))
@@ -1301,6 +1339,8 @@ def main():
     app.add_handler(CommandHandler("addtitle",addtitle))
     app.add_handler(CommandHandler("search",search))
     app.add_handler(CommandHandler("referral",referral))
+    app.add_handler(CommandHandler("addvips",addvips))
+    app.add_handler(CommandHandler("removevips",removevips))
     app.add_handler(CommandHandler("edittitle",edittitle))
     app.add_handler(CommandHandler("titles", titles))
     app.add_handler(CommandHandler("getdb", getdb))
