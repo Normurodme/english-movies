@@ -565,9 +565,15 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
             return
 
         title=update.message.text.strip()
-        code=str(DB.get("next_title",1))
+        current = str(DB.get("next_title","1"))
+        code = current
 
-        DB["next_title"]=int(DB.get("next_title",1))+1
+        if "." in current:
+            main, part = current.split(".")
+            next_part = int(part) + 1
+            DB["next_title"] = f"{main}.{next_part}"
+        else:
+            DB["next_title"] = str(int(current) + 1)
 
         DB.setdefault("catalog",{})
         DB["catalog"][code]={
@@ -609,15 +615,22 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"✅ Next code updated → {text}")
         return
 
-    # NEXT TITLE SET
+    # NEXT TITLE SET (SERIAL SUPPORT)
     if uid==ADMIN_ID and context.user_data.get("setnexttitle"):
         context.user_data.clear()
-        if not text.isdigit():
-            await update.message.reply_text("Send numbers only")
+
+        new_code = update.message.text.strip()
+
+        if not re.match(r'^\d+(\.\d+)?$', new_code):
+            await update.message.reply_text("❌ Invalid format. Example: 81 or 81.1")
             return
-        DB["next_title"]=int(text)
+
+        DB["next_title"] = new_code
         save()
-        await update.message.reply_text(f"✅ Next title code updated → {text}")
+
+        await update.message.reply_text(
+            f"✅ Next title code updated → {new_code}"
+        )
         return
 
 
