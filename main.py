@@ -650,9 +650,9 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
 
     
     # ================= UPLOAD FIXED =================
- if uid == ADMIN_ID and context.user_data.get("upload") and (
-    update.message.video or update.message.document
-):
+    if uid == ADMIN_ID and context.user_data.get("upload") and (
+        update.message.video or update.message.document
+    ):
 
         try:
 
@@ -1097,7 +1097,7 @@ async def top_callback(update:Update,context:ContextTypes.DEFAULT_TYPE):
 
     await q.message.edit_text(text,parse_mode="HTML")
 
-async def main():
+def main():
 
     app=ApplicationBuilder().token(TOKEN).post_init(post_init).build()
 
@@ -1134,7 +1134,7 @@ async def main():
     app.add_handler(MessageHandler(filters.ALL,msg))
 
     print("BOT RUNNING...")
-    await app.run_polling(close_loop=False)
+    app.run_polling(close_loop=False)
 
 if __name__=="__main__":
     main(
