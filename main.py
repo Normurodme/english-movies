@@ -565,15 +565,9 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
             return
 
         title=update.message.text.strip()
-        current = str(DB.get("next_title","1"))
-        code = current
+        code=str(DB.get("next_title",1))
 
-        if "." in current:
-            main, part = current.split(".")
-            next_part = int(part) + 1
-            DB["next_title"] = f"{main}.{next_part}"
-        else:
-            DB["next_title"] = str(int(current) + 1)
+        DB["next_title"]=int(DB.get("next_title",1))+1
 
         DB.setdefault("catalog",{})
         DB["catalog"][code]={
@@ -615,22 +609,15 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"✅ Next code updated → {text}")
         return
 
-    # NEXT TITLE SET (SERIAL SUPPORT)
+    # NEXT TITLE SET
     if uid==ADMIN_ID and context.user_data.get("setnexttitle"):
         context.user_data.clear()
-
-        new_code = update.message.text.strip()
-
-        if not re.match(r'^\d+(\.\d+)?$', new_code):
-            await update.message.reply_text("❌ Invalid format. Example: 81 or 81.1")
+        if not text.isdigit():
+            await update.message.reply_text("Send numbers only")
             return
-
-        DB["next_title"] = new_code
+        DB["next_title"]=int(text)
         save()
-
-        await update.message.reply_text(
-            f"✅ Next title code updated → {new_code}"
-        )
+        await update.message.reply_text(f"✅ Next title code updated → {text}")
         return
 
 
@@ -1013,6 +1000,38 @@ async def titles(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Send movie code to edit")
 
 
+
+# =========================================
+# SEARCH SYSTEM
+# =========================================
+
+async def search(update:Update, context:ContextTypes.DEFAULT_TYPE):
+    if not context.args:
+        await update.message.reply_text("Usage: /search keyword")
+        return
+
+    keyword = " ".join(context.args).lower()
+
+    catalog = DB.get("catalog", {})
+    results = []
+
+    for code, data in catalog.items():
+        title = data.get("title", "")
+        if keyword in title.lower():
+            results.append((code, title))
+
+    if not results:
+        await update.message.reply_text("❌ No results found")
+        return
+
+    text = "🔎 <b>Results :</b>\n\n"
+
+    for i, (code, title) in enumerate(results, 1):
+        text += f"{i}. {title}  -  <b>{code}</b>\n\n"
+
+    await update.message.reply_text(text, parse_mode="HTML")
+
+
 # =========================================
 # RUN
 # =========================================
@@ -1093,6 +1112,7 @@ def main():
     app.add_handler(CommandHandler("message",message_cmd))
     app.add_handler(CommandHandler("top",top_cmd))
     app.add_handler(CommandHandler("addtitle",addtitle))
+    app.add_handler(CommandHandler("search",search))
     app.add_handler(CommandHandler("edittitle",edittitle))
     app.add_handler(CommandHandler("titles", titles))
     app.add_handler(CommandHandler("getdb", getdb))
