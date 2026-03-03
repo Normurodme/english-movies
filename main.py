@@ -141,6 +141,32 @@ async def vip_checker(app):
         await asyncio.sleep(3600)
 
 # =========================================
+
+    # SEARCH FLOW
+    if context.user_data.get("search_mode"):
+        keyword = update.message.text.strip().lower()
+        context.user_data.pop("search_mode", None)
+
+        catalog = DB.get("catalog", {})
+        results = []
+
+        for code_val, data in catalog.items():
+            title = data.get("title","")
+            if keyword in title.lower():
+                results.append((code_val, title))
+
+        if not results:
+            await update.message.reply_text("❌ No results found")
+            return
+
+        text = "🔎 <b>Results :</b>\n\n"
+
+        for i,(c,title) in enumerate(results,1):
+            text += f"{i}. {title}  -  <b>{c}</b>\n\n"
+
+        await update.message.reply_text(text, parse_mode="HTML")
+        return
+
 # SUB CHECK
 # =========================================
 
@@ -1005,32 +1031,14 @@ async def titles(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # SEARCH SYSTEM
 # =========================================
 
+
+# =========================================
+# SEARCH SYSTEM (INTERACTIVE)
+# =========================================
+
 async def search(update:Update, context:ContextTypes.DEFAULT_TYPE):
-    if not context.args:
-        await update.message.reply_text("Usage: /search keyword")
-        return
-
-    keyword = " ".join(context.args).lower()
-
-    catalog = DB.get("catalog", {})
-    results = []
-
-    for code, data in catalog.items():
-        title = data.get("title", "")
-        if keyword in title.lower():
-            results.append((code, title))
-
-    if not results:
-        await update.message.reply_text("❌ No results found")
-        return
-
-    text = "🔎 <b>Results :</b>\n\n"
-
-    for i, (code, title) in enumerate(results, 1):
-        text += f"{i}. {title}  -  <b>{code}</b>\n\n"
-
-    await update.message.reply_text(text, parse_mode="HTML")
-
+    context.user_data["search_mode"] = True
+    await update.message.reply_text("Send a movie name")
 
 # =========================================
 # RUN
