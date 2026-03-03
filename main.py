@@ -649,10 +649,10 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
 
 
     
-    # ================= UPLOAD FIXED =================
- if uid == ADMIN_ID and context.user_data.get("upload") and (
-    update.message.video or update.message.document
-):
+ # ================= UPLOAD FIXED =================
+    if uid == ADMIN_ID and context.user_data.get("upload") and (
+        update.message.video or update.message.document
+    ):
 
         try:
 
