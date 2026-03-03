@@ -189,9 +189,55 @@ async def sub_msg(update):
     ])
     await update.message.reply_text(TXT_SUB,reply_markup=kb,parse_mode="HTML")
 
+
+# =========================================
+# REFERRAL SYSTEM
+# =========================================
+
+REF_FILE = "/data/referrals.json"
+USED_REF_FILE = "/data/used_ref.json"
+
+REFERRALS = load(REF_FILE, {})
+USED_REF = load(USED_REF_FILE, {})
+
+def save_ref():
+    save_file(REF_FILE, REFERRALS)
+    save_file(USED_REF_FILE, USED_REF)
+
+def add_referral(referrer_id, new_user_id):
+    referrer_id = str(referrer_id)
+    new_user_id = str(new_user_id)
+
+    if new_user_id in USED_REF:
+        return
+
+    if referrer_id == new_user_id:
+        return
+
+    REFERRALS.setdefault(referrer_id, 0)
+    REFERRALS[referrer_id] += 1
+    USED_REF[new_user_id] = referrer_id
+
+    count = REFERRALS[referrer_id]
+    now = datetime.utcnow()
+
+    # 5 referrals → 1 day VIP
+    if count == 5:
+        expire = now + timedelta(days=1)
+        VIP[referrer_id] = expire.isoformat()
+
+    # 10 referrals → 3 days VIP
+    if count == 10:
+        expire = now + timedelta(days=3)
+        VIP[referrer_id] = expire.isoformat()
+
+    save()
+    save_ref()
+
 # =========================================
 # START
 # =========================================
+
 
 async def start(update:Update,context:ContextTypes.DEFAULT_TYPE):
     uid=update.effective_user.id
@@ -199,6 +245,15 @@ async def start(update:Update,context:ContextTypes.DEFAULT_TYPE):
     if str(uid) in BANNED:
         await update.message.reply_text("You are banned 🚫")
         return
+
+    # Referral handling
+    if context.args:
+        try:
+            referrer = int(context.args[0])
+            if uid not in USERS:
+                add_referral(referrer, uid)
+        except:
+            pass
 
     if uid not in USERS:
         USERS.append(uid)
@@ -776,7 +831,7 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
     vip_user=is_vip(uid)
 
     delay = 5 if vip_user else 5
-    daily_limit = 30 if vip_user else 15
+    daily_limit = 30 if vip_user else 30
 
     # cooldown
     if uid in LAST_REQ and now-LAST_REQ[uid]<delay:
@@ -1071,6 +1126,24 @@ async def search(update:Update, context:ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Send a movie name")
 
 
+
+# =========================================
+# REFERRAL COMMAND
+# =========================================
+
+async def referral(update:Update, context:ContextTypes.DEFAULT_TYPE):
+    uid = update.effective_user.id
+    link = f"https://t.me/englishmovietimebot?start={uid}"
+    count = REFERRALS.get(str(uid), 0)
+
+    text = (
+        "You can get 1 day VIP by inviting 5 friends , 3 days VIP with 10 friends\n\n"
+        f"{link}\n\n"
+        f"👥 Your referrals: {count}"
+    )
+
+    await update.message.reply_text(text)
+
 # =========================================
 # RUN
 # =========================================
@@ -1153,6 +1226,7 @@ def main():
     app.add_handler(CommandHandler("top",top_cmd))
     app.add_handler(CommandHandler("addtitle",addtitle))
     app.add_handler(CommandHandler("search",search))
+    app.add_handler(CommandHandler("referral",referral))
     app.add_handler(CommandHandler("edittitle",edittitle))
     app.add_handler(CommandHandler("titles", titles))
     app.add_handler(CommandHandler("getdb", getdb))
