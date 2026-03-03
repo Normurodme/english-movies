@@ -140,36 +140,6 @@ async def vip_checker(app):
 
         await asyncio.sleep(3600)
 
-# =========================================
-
-    # SEARCH FLOW (TITLE ONLY — EVEN IF NUMBER)
-    if context.user_data.get("search_mode"):
-
-        query = update.message.text.strip()
-        context.user_data.pop("search_mode", None)
-
-        catalog = DB.get("catalog", {})
-        results = []
-
-        keyword = query.lower()
-
-        for code_val, data in catalog.items():
-            title = data.get("title", "")
-            if keyword in title.lower():
-                results.append((code_val, title))
-
-        if not results:
-            await update.message.reply_text("❌ No results found")
-            return
-
-        text = "🔎 <b>Results :</b>\n\n"
-
-        for i, (c, title) in enumerate(results, 1):
-            text += f"{i}. {title}  -  <b>{c}</b>\n\n"
-
-        await update.message.reply_text(text, parse_mode="HTML")
-        return
-
 # SUB CHECK
 # =========================================
 
@@ -533,6 +503,35 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
         text = text.strip().replace(" ", "").replace("\n","").replace("\r","")
 
     if text and text.startswith("/"): 
+
+    # SEARCH FLOW (TITLE ONLY)
+    if context.user_data.get("search_mode"):
+
+        query = update.message.text.strip()
+        context.user_data.pop("search_mode", None)
+
+        catalog = DB.get("catalog", {})
+        results = []
+
+        keyword = query.lower()
+
+        for code_val, data in catalog.items():
+            title = data.get("title", "")
+            if keyword in title.lower():
+                results.append((code_val, title))
+
+        if not results:
+            await update.message.reply_text("❌ No results found")
+            return
+
+        text_out = "🔎 <b>Results :</b>\n\n"
+
+        for i, (c, title) in enumerate(results, 1):
+            text_out += f"{i}. {title}  -  <b>{c}</b>\n\n"
+
+        await update.message.reply_text(text_out, parse_mode="HTML")
+        return
+
         return
 
 
