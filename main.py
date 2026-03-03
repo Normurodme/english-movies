@@ -22,19 +22,45 @@ MESSAGE_CHANNEL = "@xabarkino"
 # TEXT DESIGN
 # =========================================
 
-TXT_START = "🎬 <b>Send movie code</b>\n\nExample: <code>12</code>"
-TXT_WAIT = "⏳ Please wait a bit..."
-TXT_NOT_FOUND = "❌ Such code was not found"
-TXT_SUB = "📢 <b>Join the channel to use the bot</b>"
-TXT_VIP_ONLY = "🔒 This movie is only for VIP subscribers\n👑 Unlock via /vip"
+TXT_START = (
+    "🎬 <b>Welcome to English Movie Time</b>\n"
+    "━━━━━━━━━━━━━━━━━━\n\n"
+    "📥 Send movie code to download\n"
+    "🔎 Or use /search to find by name\n"
+    "🏆 Check trending: /top\n"
+    "👑 Unlock premium: /vip\n\n"
+    "Example: <code>12</code>\n"
+    "━━━━━━━━━━━━━━━━━━"
+)
+TXT_WAIT = "⏳ Processing your request... Please wait"
+TXT_NOT_FOUND = "❌ Movie not found\n\n🔎 Try /search to find by name"
+TXT_SUB = (
+    "🚀 <b>Access Restricted</b>\n"
+    "━━━━━━━━━━━━━━━━━━\n\n"
+    "📢 Join our official channel to unlock access\n"
+    "🎬 Get daily movie updates\n"
+    "🔥 Exclusive premium content\n\n"
+    "After joining, press ✅ Check"
+)
+TXT_VIP_ONLY = (
+    "🔒 <b>VIP Exclusive Content</b>\n"
+    "━━━━━━━━━━━━━━━━━━\n\n"
+    "👑 This movie is available for VIP members only\n"
+    "✨ No ads\n"
+    "⚡ Faster access\n"
+    "🕒 Longer watch time\n\n"
+    "Upgrade now → /vip"
+)
 TXT_DONE = "✅ Saved"
 TXT_DELETED = "🗑 Deleted"
 TXT_SETNEXT = "📌 Current code: <b>{}</b>\nSend new code"
 TXT_UPDATED = "✅ Next code updated → {}"
 
 WARNING = (
-    "⚠️ <b>Video will be deleted after 15 minutes!</b>\n"
-    "📥 Download it."
+    "⚠️ <b>This video will be deleted automatically</b>\n"
+    "━━━━━━━━━━━━━━━━━━\n"
+    "📥 Download immediately to keep it\n"
+    "👑 VIP users get extended access"
 )
 
 # =========================================
@@ -378,10 +404,14 @@ async def delvip(update:Update,context:ContextTypes.DEFAULT_TYPE):
 async def vip(update:Update,context:ContextTypes.DEFAULT_TYPE):
 
     text=(
-        "👑 <b>VIP privileges</b>\n\n"
-        "• 6 soat will not be deleted\n"
-        "• VIP movies unlock\n"
-        "• No ads"
+        "👑 <b>Premium VIP Membership</b>\n"
+        "━━━━━━━━━━━━━━━━━━\n\n"
+        "⚡ Faster delivery\n"
+        "🔓 VIP exclusive movies\n"
+        "🚫 No advertisements\n"
+        "🕒 Extended watch time\n"
+        "🏆 Priority support\n\n"
+        "Choose your plan below:"
     )
 
     kb=InlineKeyboardMarkup([
