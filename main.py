@@ -502,7 +502,8 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
     if text:
         text = text.strip().replace(" ", "").replace("\n","").replace("\r","")
 
-    if text and text.startswith("/"): 
+    if text and text.startswith("/"):
+    return
 
     # SEARCH FLOW (TITLE ONLY)
     if context.user_data.get("search_mode"):
