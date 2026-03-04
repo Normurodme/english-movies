@@ -23,33 +23,21 @@ MESSAGE_CHANNEL = "@xabarkino"
 # =========================================
 
 TXT_START = (
-    "🎬 <b>Welcome to English Movie Time</b>\n"
-    "━━━━━━━━━━━━━━━━━━\n\n"
-    "📥 Send movie code to download\n"
-    "🔎 Or use /search to find by name\n"
-    "🏆 Check trending: /top\n"
-    "👑 Unlock premium: /vip\n\n"
-    "Example: <code>12</code>\n"
-    "━━━━━━━━━━━━━━━━━━"
+    "🎬 <b>English Movie Time</b>\n\n"
+    "Send movie code\n"
+    "Example: <code>12</code>\n\n"
+    "🔎 /search  |  👑 /vip"
 )
 TXT_WAIT = "⏳ Processing your request... Please wait"
 TXT_NOT_FOUND = "❌ Movie not found\n\n🔎 Try /search to find by name"
 TXT_SUB = (
-    "🚀 <b>Access Restricted</b>\n"
-    "━━━━━━━━━━━━━━━━━━\n\n"
-    "📢 Join our official channel to unlock access\n"
-    "🎬 Get daily movie updates\n"
-    "🔥 Exclusive premium content\n\n"
-    "After joining, press ✅ Check"
+    "🚀 <b>Access Restricted</b>\n\n"
+    "📢 Join channel to use the bot\n"
+    "Then press ✅ Check"
 )
 TXT_VIP_ONLY = (
-    "🔒 <b>VIP Exclusive Content</b>\n"
-    "━━━━━━━━━━━━━━━━━━\n\n"
-    "👑 This movie is available for VIP members only\n"
-    "✨ No ads\n"
-    "⚡ Faster access\n"
-    "🕒 Longer watch time\n\n"
-    "Upgrade now → /vip"
+    "🔒 <b>VIP Only</b>\n\n"
+    "👑 Unlock with /vip"
 )
 TXT_DONE = "✅ Saved"
 TXT_DELETED = "🗑 Deleted"
@@ -58,9 +46,7 @@ TXT_UPDATED = "✅ Next code updated → {}"
 
 WARNING = (
     "⚠️ <b>This video will be deleted automatically</b>\n"
-    "━━━━━━━━━━━━━━━━━━\n"
-    "📥 Download immediately to keep it\n"
-    "👑 VIP users get extended access"
+    "📥 Download now"
 )
 
 # =========================================
@@ -1299,8 +1285,8 @@ async def post_init(app):
 async def top_cmd(update:Update,context:ContextTypes.DEFAULT_TYPE):
     kb = InlineKeyboardMarkup([
         [
-            InlineKeyboardButton("Week", callback_data="top_week"),
-            InlineKeyboardButton("Month", callback_data="top_month")
+            InlineKeyboardButton("📆Week", callback_data="top_week"),
+            InlineKeyboardButton("🗓Month", callback_data="top_month")
         ]
     ])
     await update.message.reply_text("Choose period",reply_markup=kb)
