@@ -462,6 +462,10 @@ async def vips(update:Update,context:ContextTypes.DEFAULT_TYPE):
 # =========================================
 
 async def download(update:Update,context:ContextTypes.DEFAULT_TYPE):
+
+    global SERIAL_MODE
+    SERIAL_MODE = False
+    context.user_data.clear()
     if update.effective_user.id!=ADMIN_ID: return
 
     kb=InlineKeyboardMarkup([
@@ -471,6 +475,10 @@ async def download(update:Update,context:ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("📤 Choose upload type:",reply_markup=kb)
 
 async def vipdownload(update:Update,context:ContextTypes.DEFAULT_TYPE):
+
+    global SERIAL_MODE
+    SERIAL_MODE = False
+    context.user_data.clear()
 
     uid = update.effective_user.id
     if not is_vip(uid) and uid != ADMIN_ID:
