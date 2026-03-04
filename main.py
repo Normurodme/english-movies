@@ -31,7 +31,7 @@ TXT_START = (
 TXT_WAIT = "⏳ Processing your request... Please wait"
 TXT_NOT_FOUND = "❌ Movie not found\n\n🔎 Try /search to find by name"
 TXT_SUB = (
-    "🚀 <b>Access Restricted</b>\n\n"
+    "🍿 <b>Welcome Movie Lover</b>\n\n"
     "📢 Join channel to use the bot\n"
     "Then press ✅ Check"
 )
