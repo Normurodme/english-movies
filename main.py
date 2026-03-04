@@ -17,6 +17,29 @@ STORAGE_CHANNEL_ID = -1003793414081
 REQUEST_DELAY = 5
 MESSAGE_CHANNEL = "@xabarkino"
 
+# =========================================
+# QUEUE SYSTEM (25 req/sec)
+# =========================================
+SEND_QUEUE = asyncio.Queue()
+
+async def queue_worker():
+    while True:
+        context, uid, msg_id, vip_flag = await SEND_QUEUE.get()
+        try:
+            sent = await context.bot.copy_message(
+                uid,
+                STORAGE_CHANNEL_ID,
+                msg_id,
+                caption=WARNING,
+                parse_mode="HTML"
+            )
+            delete_sec = 21600 if vip_flag else 900
+            asyncio.create_task(auto_delete(context, uid, sent.message_id, delete_sec))
+        except:
+            pass
+        await asyncio.sleep(0.04)
+
+
 
 # =========================================
 # TEXT DESIGN
@@ -917,16 +940,7 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
     STATS["users"].append((uid,now))
     mark_stats_dirty()
 
-    sent=await context.bot.copy_message(
-        uid,
-        STORAGE_CHANNEL_ID,
-        msg_id,
-        caption=WARNING,
-        parse_mode="HTML"
-    )
-
-    delete_sec=21600 if is_vip(uid) else 900
-    asyncio.create_task(auto_delete(context,uid,sent.message_id,delete_sec))
+    await SEND_QUEUE.put((context, uid, msg_id, is_vip(uid)))
 
 
 # =========================================
@@ -1275,6 +1289,7 @@ async def removevips(update:Update,context:ContextTypes.DEFAULT_TYPE):
 # =========================================
 
 async def post_init(app):
+    asyncio.create_task(queue_worker())
     asyncio.create_task(vip_checker(app))
     asyncio.create_task(autosave_stats_loop())
 
