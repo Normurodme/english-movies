@@ -689,7 +689,8 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
         context.user_data.pop("msg_mode", None)
         return
 
-    # SEARCH FLOW (TITLE ONLY)
+    """DISABLED_OLD_SEARCH_BLOCK
+# SEARCH FLOW (TITLE ONLY)
     if context.user_data.get("search_mode"):
 
         query = update.message.text.strip()
@@ -708,6 +709,7 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
         if not results:
             await update.message.reply_text("❌ No results found")
             return
+"""
 
         text_out = "🔎 <b>Results :</b>\n\n"
 
@@ -1387,7 +1389,7 @@ async def top_callback(update:Update,context:ContextTypes.DEFAULT_TYPE):
 
     top=sorted(stats.items(), key=lambda x:x[1], reverse=True)[:10]
 
-    text = f"<b>TOP {period_NAME}</b>\n"
+    text = f"<b>TOP {period_name}</b>\n"
     text += "──────────────────\n\n"
 
     for i,(c,count) in enumerate(top,1):
