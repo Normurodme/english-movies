@@ -682,7 +682,7 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
 
     text = update.message.text if update.message.text else None
     if text:
-        text = text.strip().replace(" ", "").replace("\n","").replace("\r","")
+        text = text.strip()
 
     if text and text.startswith("/"):
          return
