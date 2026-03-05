@@ -687,6 +687,11 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
     if text and text.startswith("/"):
          return
 
+    # RESET MODES IF COMMAND
+    if update.message.text and update.message.text.startswith("/"):
+        context.user_data.pop("search_mode", None)
+        context.user_data.pop("support_mode", None)
+
     # SEARCH FLOW (TITLE ONLY)
     if context.user_data.get("search_mode"):
 
@@ -776,7 +781,12 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
         title=update.message.text.strip()
         code=str(DB.get("next_title",1))
 
-        DB["next_title"]=int(DB.get("next_title",1))+1
+        _nt = str(DB.get("next_title",1))
+if "." in _nt:
+    base,dec=_nt.split(".",1)
+    DB["next_title"]=f"{base}.{int(dec)+1}"
+else:
+    DB["next_title"]=int(_nt)+1
 
         DB.setdefault("catalog",{})
         DB["catalog"][code]={
@@ -821,10 +831,10 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
     # NEXT TITLE SET
     if uid==ADMIN_ID and context.user_data.get("setnexttitle"):
         context.user_data.clear()
-        if not text.isdigit():
-            await update.message.reply_text("Send numbers only")
+        if not re.match(r'^\d+(\.\d+)?$', text):
+            await update.message.reply_text("Send number like 88 or 88.1")
             return
-        DB["next_title"]=int(text)
+        DB["next_title"]=text
         save()
         await update.message.reply_text(f"✅ Next title code updated → {text}")
         return
