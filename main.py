@@ -891,36 +891,6 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
     # =================================================
 
 
-    
-    # MESSAGE FLOW
-    if context.user_data.get("msg_mode"):
-        mode=context.user_data.get("msg_mode")
-
-        # ADMIN REPLY TO USER
-        if mode=="admin":
-            target=context.user_data.get("msg_target")
-            try:
-                await update.message.copy(target)
-                await update.message.reply_text("✅ Sent")
-            except:
-                await update.message.reply_text("❌ Failed to send")
-            context.user_data.clear()
-            return
-
-        # USER SEND TO CHANNEL
-        if mode=="user":
-            try:
-                txt=update.message.text or ""
-                await context.bot.send_message(
-                    MESSAGE_CHANNEL,
-                    f"📩 Message from {uid}:\n{txt}"
-                )
-                await update.message.reply_text("✅ Sent to admin")
-            except:
-                await update.message.reply_text("❌ Failed")
-            context.user_data.clear()
-            return
-
     # SUB CHECK
     if not await check_sub(uid,context):
         await sub_msg(update)
@@ -928,9 +898,7 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
 
     if not text: return
 
-    
-    
-    # MENU BUTTONS
+    # MENU BUTTONS (process these BEFORE message-mode)
     if text and text.startswith("Search"):
         context.user_data.pop("msg_mode", None)
         context.user_data["search_mode"] = True
@@ -956,6 +924,39 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
         context.user_data.pop("search_mode", None)
         await message_cmd(update, context)
         return
+
+    # ------------------------
+    # MESSAGE FLOW — moved here so menu buttons override it
+    # ------------------------
+    if context.user_data.get("msg_mode"):
+        mode=context.user_data.get("msg_mode")
+
+        # ADMIN REPLY TO USER
+        if mode=="admin":
+            target=context.user_data.get("msg_target")
+            try:
+                await update.message.copy(target)
+                await update.message.reply_text("✅ Sent")
+            except:
+                await update.message.reply_text("❌ Failed to send")
+            context.user_data.clear()
+            return
+
+        # USER SEND TO CHANNEL
+        if mode=="user":
+            # if user typed a menu command, ignore msg_mode and let menu handle (safety)
+            # but since we moved this block after menu handling, this is mostly safe
+            try:
+                txt=update.message.text or ""
+                await context.bot.send_message(
+                    MESSAGE_CHANNEL,
+                    f"📩 Message from {uid}:\n{txt}"
+                )
+                await update.message.reply_text("✅ Sent to admin")
+            except:
+                await update.message.reply_text("❌ Failed")
+            context.user_data.clear()
+            return
 
     # LIMIT + COOLDOWN
     now=time.time()
@@ -1310,7 +1311,7 @@ async def removevip_user(update:Update,context:ContextTypes.DEFAULT_TYPE):
 # =========================================
 
 async def addvips(update:Update,context:ContextTypes.DEFAULT_TYPE):
-    if update.effective_user.id != ADMIN_ID:
+    if update.effective_user.id!=ADMIN_ID:
         return
 
     if not context.args:
@@ -1326,7 +1327,7 @@ async def addvips(update:Update,context:ContextTypes.DEFAULT_TYPE):
 
 
 async def removevips(update:Update,context:ContextTypes.DEFAULT_TYPE):
-    if update.effective_user.id != ADMIN_ID:
+    if update.effective_user.id!=ADMIN_ID:
         return
 
     if not context.args:
@@ -1386,7 +1387,7 @@ async def top_callback(update:Update,context:ContextTypes.DEFAULT_TYPE):
 
     top=sorted(stats.items(), key=lambda x:x[1], reverse=True)[:10]
 
-    text = f"<b>TOP {period_name}</b>\n"
+    text = f"<b>TOP {period_NAME}</b>\n"
     text += "──────────────────\n\n"
 
     for i,(c,count) in enumerate(top,1):
