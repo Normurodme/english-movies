@@ -891,7 +891,7 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
         await referral(update, context)
         return
 
-    if text and text.startswith("Support"):
+    if text and text.startswith("Request Movie"):
         context.user_data.pop("search_mode", None)
         await message_cmd(update, context)
         return
@@ -934,7 +934,7 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
     # ------------------------
     if context.user_data.get("search_mode"):
         # if user pressed some menu button while in search mode, cancel search
-        if text and text.startswith(("Search", "Top", "Vip", "Support", "Referral")):
+        if text and text.startswith(("Search", "Top", "Vip", "Request Movie", "Referral")):
             context.user_data.pop("search_mode", None)
             # let menu handling above process this input if needed
             return
