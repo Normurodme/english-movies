@@ -6,6 +6,7 @@ import re
 from datetime import datetime, timedelta
 
 from telegram import *
+from telegram import ReplyKeyboardMarkup
 from telegram.ext import *
 
 TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
@@ -60,7 +61,7 @@ TXT_SUB = (
 )
 TXT_VIP_ONLY = (
     "🔒 This movie for only VIP users "
-    "👑 Unlock with /vip"
+    "🔑 Unlock with /vip"
 )
 TXT_DONE = "✅ Saved"
 TXT_DELETED = "🗑 Deleted"
@@ -70,6 +71,19 @@ TXT_UPDATED = "✅ Next code updated → {}"
 WARNING = (
     "⚠️ <b>This video will be deleted automatically</b>\n"
     "📥 Download now"
+)
+
+
+# =========================================
+# USER MENU KEYBOARD
+# =========================================
+USER_MENU = ReplyKeyboardMarkup(
+    [
+        ["Search 🔍", "Top 🔝"],
+        ["Vip 🔐", "Support 👨‍💻"],
+        ["Referral"]
+    ],
+    resize_keyboard=True
 )
 
 # =========================================
@@ -317,7 +331,7 @@ async def start(update:Update,context:ContextTypes.DEFAULT_TYPE):
         await sub_msg(update)
         return
 
-    await update.message.reply_text(TXT_START,parse_mode="HTML")
+    await update.message.reply_text(TXT_START,parse_mode="HTML", reply_markup=USER_MENU)
 
 # =========================================
 # DELETE COMMAND (NEW)
@@ -907,6 +921,28 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
     if not text: return
 
     
+    
+    # MENU BUTTONS
+    if text == "Search 🔍":
+        await search(update, context)
+        return
+
+    if text == "Top 🔝":
+        await top_cmd(update, context)
+        return
+
+    if text == "Vip 🔐":
+        await vip(update, context)
+        return
+
+    if text == "Referral":
+        await referral(update, context)
+        return
+
+    if text == "Support 👨‍💻":
+        await message_cmd(update, context)
+        return
+
     # LIMIT + COOLDOWN
     now=time.time()
     vip_user=is_vip(uid)
