@@ -80,7 +80,7 @@ WARNING = (
 USER_MENU = ReplyKeyboardMarkup(
     [
         ["Search 🔍", "Top 🔝"],
-        ["Vip 🔐", "Support 👨‍💻"],
+        ["Vip 🔐", "🎬 Request Movie"],
         ["Referral"]
     ],
     resize_keyboard=True
@@ -1147,7 +1147,7 @@ async def message_cmd(update:Update,context:ContextTypes.DEFAULT_TYPE):
 
     # USER MODE
     context.user_data["msg_mode"]="user"
-    await update.message.reply_text("Do you have message to administator ?")
+    await update.message.reply_text("You can request movie 📽")
 
 
 
