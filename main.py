@@ -782,19 +782,19 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
         code=str(DB.get("next_title",1))
 
         _nt = str(DB.get("next_title",1))
-if "." in _nt:
-    base,dec=_nt.split(".",1)
-    DB["next_title"]=f"{base}.{int(dec)+1}"
-else:
-    DB["next_title"]=int(_nt)+1
-
-DB.setdefault("catalog",{})
-DB["catalog"][code]={
-    "title":title,
-    "msg_id":None,
-    "date":time.time()
-    
-       } 
+        if "." in _nt:
+        base,dec=_nt.split(".",1)
+        DB["next_title"]=f"{base}.{int(dec)+1}"
+        else:
+        DB["next_title"]=int(_nt)+1
+        
+        DB.setdefault("catalog",{})
+        DB["catalog"][code]={
+        "title":title,
+        "msg_id":None,
+        "date":time.time()
+        
+        }
         save()
 
         await update.message.reply_text(f"✅ {code} → {title}")
