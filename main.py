@@ -788,12 +788,13 @@ if "." in _nt:
 else:
     DB["next_title"]=int(_nt)+1
 
-        DB.setdefault("catalog",{})
-        DB["catalog"][code]={
-            "title":title,
-            "msg_id":None,
-            "date":time.time()
-        }
+DB.setdefault("catalog",{})
+DB["catalog"][code]={
+    "title":title,
+    "msg_id":None,
+    "date":time.time()
+    
+       } 
         save()
 
         await update.message.reply_text(f"✅ {code} → {title}")
