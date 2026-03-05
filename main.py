@@ -923,23 +923,23 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
     
     
     # MENU BUTTONS
-    if text == "Search 🔍":
+    if text and text.startswith("Search"):
         await search(update, context)
         return
 
-    if text == "Top 🔝":
+    if text and text.startswith("Top"):
         await top_cmd(update, context)
         return
 
-    if text == "Vip 🔐":
+    if text and text.startswith("Vip"):
         await vip(update, context)
         return
 
-    if text == "Referral":
+    if text and text.startswith("Referral"):
         await referral(update, context)
         return
 
-    if text == "Support 👨‍💻":
+    if text and text.startswith("Support"):
         await message_cmd(update, context)
         return
 
