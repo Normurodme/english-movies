@@ -689,37 +689,6 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
         context.user_data.pop("msg_mode", None)
         return
 
-    """DISABLED_OLD_SEARCH_BLOCK
-# SEARCH FLOW (TITLE ONLY)
-    if context.user_data.get("search_mode"):
-
-        query = update.message.text.strip()
-        context.user_data.pop("search_mode", None)
-
-        catalog = DB.get("catalog", {})
-        results = []
-
-        keyword = query.lower()
-
-        for code_val, data in catalog.items():
-            title = data.get("title", "")
-            if keyword in title.lower():
-                results.append((code_val, title))
-
-        if not results:
-            await update.message.reply_text("❌ No results found")
-            return
-"""
-
-        text_out = "🔎 <b>Results :</b>\n\n"
-
-        for i, (c, title) in enumerate(results, 1):
-            text_out += f"{i}. {title}  -  <b>{c}</b>\n\n"
-
-        await update.message.reply_text(text_out, parse_mode="HTML")
-        return
-
-
     # ================= EDITTITLE FLOW =================
 
     # STEP 1 — CODE
@@ -960,6 +929,41 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
             context.user_data.clear()
             return
 
+    # ------------------------
+    # SEARCH MODE (must run AFTER menu & msg_mode handling, BEFORE treating text as code)
+    # ------------------------
+    if context.user_data.get("search_mode"):
+        # if user pressed some menu button while in search mode, cancel search
+        if text and text.startswith(("Search", "Top", "Vip", "Support", "Referral")):
+            context.user_data.pop("search_mode", None)
+            # let menu handling above process this input if needed
+            return
+
+        query = text.strip()
+        context.user_data.pop("search_mode", None)
+
+        catalog = DB.get("catalog", {})
+        results = []
+
+        keyword = query.lower()
+
+        for code_val, data in catalog.items():
+            title = data.get("title", "")
+            if keyword in title.lower():
+                results.append((code_val, title))
+
+        if not results:
+            await update.message.reply_text("❌ No results found")
+            return
+
+        text_out = "🔎 <b>Results :</b>\n\n"
+
+        for i, (c, title) in enumerate(results, 1):
+            text_out += f"{i}. {title}  -  <b>{c}</b>\n\n"
+
+        await update.message.reply_text(text_out, parse_mode="HTML")
+        return
+
     # LIMIT + COOLDOWN
     now=time.time()
     vip_user=is_vip(uid)
@@ -1162,10 +1166,6 @@ async def getdb(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # =========================================
 # LOAD DB FROM FILE (ADMIN)
-# =========================================
-
-# =========================================
-# LOAD DB FROM FILE (ADMIN) — FIXED
 # =========================================
 async def loaddb(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != ADMIN_ID:
