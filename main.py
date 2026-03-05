@@ -924,22 +924,27 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
     
     # MENU BUTTONS
     if text and text.startswith("Search"):
-        await search(update, context)
+        context.user_data["search_mode"] = True
+        await update.message.reply_text("Send a movie name")
         return
 
     if text and text.startswith("Top"):
+        context.user_data.pop("search_mode", None)
         await top_cmd(update, context)
         return
 
     if text and text.startswith("Vip"):
+        context.user_data.pop("search_mode", None)
         await vip(update, context)
         return
 
     if text and text.startswith("Referral"):
+        context.user_data.pop("search_mode", None)
         await referral(update, context)
         return
 
     if text and text.startswith("Support"):
+        context.user_data.pop("search_mode", None)
         await message_cmd(update, context)
         return
 
