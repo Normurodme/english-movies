@@ -685,12 +685,9 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
         text = text.strip()
 
     if text and text.startswith("/"):
-         return
-
-    # RESET MODES IF COMMAND
-    if update.message.text and update.message.text.startswith("/"):
         context.user_data.pop("search_mode", None)
-        context.user_data.pop("support_mode", None)
+        context.user_data.pop("msg_mode", None)
+        return
 
     # SEARCH FLOW (TITLE ONLY)
     if context.user_data.get("search_mode"):
@@ -935,6 +932,7 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
     
     # MENU BUTTONS
     if text and text.startswith("Search"):
+        context.user_data.pop("msg_mode", None)
         context.user_data["search_mode"] = True
         await update.message.reply_text("Send a movie name")
         return
