@@ -60,8 +60,7 @@ TXT_SUB = (
     "Then press ✅ Check"
 )
 TXT_VIP_ONLY = (
-    "🔒 This movie for only VIP users "
-    
+    "🔒 This movie for only VIP users \n"
     "🔑 Unlock with /vip"
 )
 TXT_DONE = "✅ Saved"
