@@ -61,7 +61,7 @@ TXT_SUB = (
 )
 TXT_VIP_ONLY = (
     "🔒 This movie for only VIP users \n"
-    "🔑 Unlock with VIP"
+    "🔑 Unlock with 👑 VIP"
 )
 TXT_DONE = "✅ Saved"
 TXT_DELETED = "🗑 Deleted"
@@ -1432,8 +1432,16 @@ async def top_callback(update:Update,context:ContextTypes.DEFAULT_TYPE):
     for i,(c,count) in enumerate(top,1):
         title = DB.get("catalog",{}).get(c,{}).get("title","Unknown")
 
+        medal = ""
+        if i == 1:
+            medal = "🥇 "
+        elif i == 2:
+            medal = "🥈 "
+        elif i == 3:
+            medal = "🥉 "
+
         text += (
-            f"{i}. <b>{title}</b>\n"
+            f"{medal}{i}. <b>{title}</b>\n"
             f"   Code: <code>{c}</code>\n"
             f"   Requests: {count}\n\n"
         )
