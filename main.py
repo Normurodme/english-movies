@@ -872,9 +872,30 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
     # MENU BUTTONS (process these BEFORE message-mode)
     if text and text.startswith("Search"):
         context.user_data.pop("msg_mode", None)
-        context.user_data["search_mode"] = True
-        await update.message.reply_text("Send a movie name")
+
+        kb = ReplyKeyboardMarkup(
+            [
+                ["By Name", "By Code"]
+            ],
+            resize_keyboard=True
+        )
+
+        await update.message.reply_text(
+            "Choose search method",
+            reply_markup=kb
+        )
         return
+
+    if text == "By Name":
+        context.user_data["search_mode"] = "name"
+        await update.message.reply_text("Send movie name")
+        return
+
+    if text == "By Code":
+        context.user_data["search_mode"] = "code"
+        await update.message.reply_text("Send movie code")
+        return
+
 
     if text and text.startswith("Top"):
         context.user_data.pop("search_mode", None)
@@ -933,36 +954,52 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
     # SEARCH MODE (must run AFTER menu & msg_mode handling, BEFORE treating text as code)
     # ------------------------
     if context.user_data.get("search_mode"):
-        # if user pressed some menu button while in search mode, cancel search
-        if text and any(k in text for k in ("Search","Top","Vip","Request Movie","Referral")):
-            context.user_data.pop("search_mode", None)
-            # let menu handling above process this input if needed
-            return
 
-        query = text.strip()
+        mode = context.user_data.get("search_mode")
         context.user_data.pop("search_mode", None)
 
         catalog = DB.get("catalog", {})
-        results = []
 
-        keyword = query.lower()
+        if mode == "code":
 
-        for code_val, data in catalog.items():
-            title = data.get("title", "")
-            if keyword in title.lower():
-                results.append((code_val, title))
+            item = catalog.get(text)
 
-        if not results:
-            await update.message.reply_text("❌ No results found")
+            if not item:
+                await update.message.reply_text("❌ Movie not found")
+                return
+
+            title = item.get("title","")
+
+            await update.message.reply_text(
+                f"🎬 {title}\n\nCode: {text}"
+            )
             return
 
-        text_out = "🔎 <b>Results :</b>\n\n"
 
-        for i, (c, title) in enumerate(results, 1):
-            text_out += f"{i}. {title}  -  <b>{c}</b>\n\n"
+        if mode == "name":
 
-        await update.message.reply_text(text_out, parse_mode="HTML")
-        return
+            keyword = text.lower()
+            results = []
+
+            for code_val,data in catalog.items():
+
+                title = data.get("title","")
+
+                if keyword in title.lower():
+                    results.append((code_val,title))
+
+            if not results:
+                await update.message.reply_text("❌ No results found")
+                return
+
+            text_out="🔎 <b>Results :</b>\n\n"
+
+            for i,(c,title) in enumerate(results,1):
+                text_out+=f"{i}. {title} - <b>{c}</b>\n\n"
+
+            await update.message.reply_text(text_out,parse_mode="HTML")
+            return
+
 
     # LIMIT + COOLDOWN
     now=time.time()
