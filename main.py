@@ -1451,3 +1451,79 @@ def main():
 
 if __name__=="__main__":
     main()
+
+
+async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # ensure message exists
+    if not update.message or not update.message.text:
+        return
+
+    text = update.message.text.strip()
+
+    # If user pressed the Search menu button, show two options (no Back button)
+    if text.startswith("Search"):
+        kb = ReplyKeyboardMarkup([["By Name", "By Code"]], resize_keyboard=True)
+        await update.message.reply_text("Choose search method:", reply_markup=kb)
+        return
+
+    # If user chose By Name -> enter name search mode
+    if text == "By Name":
+        context.user_data["search_mode"] = "name"
+        await update.message.reply_text("Send movie name")
+        return
+
+    # If user chose By Code -> enter code search mode
+    if text == "By Code":
+        context.user_data["search_mode"] = "code"
+        await update.message.reply_text("Send movie code")
+        return
+
+    # If we are in search mode, handle accordingly
+    if context.user_data.get("search_mode"):
+        mode = context.user_data.get("search_mode")
+        # consume the mode
+        context.user_data.pop("search_mode", None)
+
+        catalog = DB.get("catalog", {})
+
+        # search by code (exact match)
+        if mode == "code":
+            movie = catalog.get(text)
+            if not movie:
+                await update.message.reply_text("❌ Movie not found")
+                return
+            title = movie.get("title", "")
+            await update.message.reply_text(f"🎬 {title}\\n\\nCode: {text}")
+            return
+
+        # search by name (partial match)
+        if mode == "name":
+            keyword = text.lower()
+            results = []
+            for code, data in catalog.items():
+                title = data.get("title", "")
+                if keyword in title.lower():
+                    results.append((code, title))
+            if not results:
+                await update.message.reply_text("❌ No results found")
+                return
+            msg = "🔎 Results:\\n\\n"
+            for i, (c, t) in enumerate(results, 1):
+                msg += f"{i}. {t} - {c}\\n"
+            await update.message.reply_text(msg)
+            return
+
+    # If user sent a plain numeric code (without entering search mode)
+    if re.fullmatch(r"\\d+", text):
+        catalog = DB.get("catalog", {})
+        movie = catalog.get(text)
+        if movie:
+            title = movie.get("title", "")
+            await update.message.reply_text(f"🎬 {title}\\n\\nCode: {text}")
+            return
+
+    # fallback
+    try:
+        await update.message.reply_text("I didn't understand that. Use the menu.", reply_markup=USER_MENU)
+    except Exception:
+        pass
