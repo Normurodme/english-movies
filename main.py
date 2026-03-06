@@ -53,7 +53,7 @@ TXT_START = (
     "🔎 /search  |  👑 /vip"
 )
 TXT_WAIT = "⏳ Processing your request... Please wait"
-TXT_NOT_FOUND = "❌ Movie not found\n\n🔎 Try /search to find by name"
+TXT_NOT_FOUND = "❌ Movie not found\n\n🔎 Try Search to find by name"
 TXT_SUB = (
     "🍿 <b>Welcome Movie Lover</b>\n\n"
     "📢 Join channel to use the bot\n"
@@ -61,6 +61,7 @@ TXT_SUB = (
 )
 TXT_VIP_ONLY = (
     "🔒 This movie for only VIP users "
+    
     "🔑 Unlock with /vip"
 )
 TXT_DONE = "✅ Saved"
