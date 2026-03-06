@@ -61,7 +61,7 @@ TXT_SUB = (
 )
 TXT_VIP_ONLY = (
     "🔒 This movie for only VIP users \n"
-    "🔑 Unlock with /vip"
+    "🔑 Unlock with VIP"
 )
 TXT_DONE = "✅ Saved"
 TXT_DELETED = "🗑 Deleted"
