@@ -875,7 +875,8 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
 
         kb = ReplyKeyboardMarkup(
             [
-                ["By Name", "By Code"]
+                ["By Name", "By Code"],
+                ["Back"]
             ],
             resize_keyboard=True
         )
@@ -894,6 +895,16 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
     if text == "By Code":
         context.user_data["search_mode"] = "code"
         await update.message.reply_text("Send movie code")
+        return
+
+    if text == "Back":
+        context.user_data.pop("search_mode", None)
+
+        await update.message.reply_text(
+            TXT_START,
+            parse_mode="HTML",
+            reply_markup=USER_MENU
+        )
         return
 
 
@@ -1521,6 +1532,16 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if text == "By Code":
         context.user_data["search_mode"] = "code"
         await update.message.reply_text("Send movie code")
+        return
+
+    if text == "Back":
+        context.user_data.pop("search_mode", None)
+
+        await update.message.reply_text(
+            TXT_START,
+            parse_mode="HTML",
+            reply_markup=USER_MENU
+        )
         return
 
     # If we are in search mode, handle accordingly
