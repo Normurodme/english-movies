@@ -25,13 +25,13 @@ SEND_QUEUE = asyncio.Queue()
 
 async def queue_worker():
     while True:
-        context, uid, msg_id, vip_flag = await SEND_QUEUE.get()
+        context, uid, msg_id, vip_flag, title = await SEND_QUEUE.get()
         try:
             sent = await context.bot.copy_message(
                 uid,
                 STORAGE_CHANNEL_ID,
                 msg_id,
-                caption=WARNING,
+                caption=f"Name : {title}\n\n{WARNING}",
                 parse_mode="HTML"
             )
             delete_sec = 21600 if vip_flag else 900
@@ -1053,7 +1053,8 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
     STATS["users"].append((uid,now))
     mark_stats_dirty()
 
-    await SEND_QUEUE.put((context, uid, msg_id, is_vip(uid)))
+    title = DB.get("catalog", {}).get(text, {}).get("title", "Unknown")
+    await SEND_QUEUE.put((context, uid, msg_id, is_vip(uid), title))
 
 
 # =========================================
