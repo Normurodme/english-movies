@@ -981,9 +981,28 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
 
             title = item.get("title","")
 
-            await update.message.reply_text(
-                f"🎬 {title}\n\nCode: {text}"
-            )
+            # Try to get stored message id for this code (media)
+            msg_id = DB.get("movies", {}).get(text)
+            if not msg_id:
+                await update.message.reply_text("❌ Movie not found")
+                return
+
+            # VIP protection: block non-VIP users from VIP-only movies
+            vip_list = set(str(x) for x in DB.get("vip_only", []))
+            if text in vip_list and not is_vip(uid):
+                await update.message.reply_text(TXT_VIP_ONLY)
+                return
+
+            # Log request statistics (keeps behaviour similar to code-request flow)
+            now = time.time()
+            STATS.setdefault("codes", []).append((text, now))
+            STATS.setdefault("requests", []).append(now)
+            STATS.setdefault("users", []).append((uid, now))
+            mark_stats_dirty()
+
+            # Enqueue media to be delivered (caption will include Name + WARNING)
+            await SEND_QUEUE.put((context, uid, msg_id, is_vip(uid), title))
+            await update.message.reply_text("⏳ Sending media...")
             return
 
 
