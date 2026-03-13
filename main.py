@@ -1002,7 +1002,7 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
 
             # Enqueue media to be delivered (caption will include Name + WARNING)
             await SEND_QUEUE.put((context, uid, msg_id, is_vip(uid), title))
-                        return
+            return
 
 
         if mode == "name":
