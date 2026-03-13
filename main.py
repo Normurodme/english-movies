@@ -80,7 +80,7 @@ WARNING = (
 USER_MENU = ReplyKeyboardMarkup(
     [
         ["Search 🔍", "Top 🔝"],
-        ["Vip 🔐", "🎬 Request Movie"],
+        ["VIP 🔐", "🎬 Request Movie"],
         ["Referral"]
     ],
     resize_keyboard=True
@@ -243,14 +243,45 @@ def mark_stats_dirty():
 
 async def autosave_stats_loop():
     global DIRTY_STATS
+    last_reset_day = None
+    
     while True:
+        now = datetime.utcnow()
+        current_day = now.day
+        
+        # HAR OY 1-KUNI: Statistikani tozalash (faqat codes)
+        if current_day == 1 and last_reset_day != current_day:
+            
+            # Eski statistikani arxivlash
+            archive_file = f"/data/stats_archive_{now.year}_{now.month-1}.json"
+            try:
+                with open(archive_file, 'w') as f:
+                    json.dump({
+                        "requests": STATS["requests"],
+                        "users": STATS["users"],
+                        "codes": STATS["codes"]
+                    }, f)
+            except:
+                pass
+            
+            # Statistikani tozalash (faqat TOP uchun kerakli qismi)
+            STATS["codes"] = []
+            STATS["requests"] = []
+            STATS["users"] = []
+            
+            # Saqlash
+            save()
+            
+            # Oxirgi tozalangan kunni eslab qolish
+            last_reset_day = current_day
+            
+            print(f"✅ Statistika tozalandi: {now.year}-{now.month-1} oylik ma'lumotlar arxivlandi")
+        
+        # HAR 30 SEKUNDDA: Dirty stats bo'lsa saqlash
         if DIRTY_STATS:
-            limit = time.time() - 86400 * 31
-            STATS["requests"] = [t for t in STATS["requests"] if t > limit]
-            STATS["users"] = [(u, t) for u, t in STATS["users"] if t > limit]
-            STATS["codes"] = [(c, t) for c, t in STATS["codes"] if t > limit]
             save()
             DIRTY_STATS = False
+            
         await asyncio.sleep(30)
 
 
