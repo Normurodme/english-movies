@@ -3,7 +3,10 @@ import json
 import asyncio
 import time
 import re
+import sqlite3
 from datetime import datetime, timedelta
+from collections import defaultdict
+from functools import lru_cache
 
 from telegram import *
 from telegram import ReplyKeyboardMarkup
@@ -40,8 +43,6 @@ async def queue_worker():
             pass
         await asyncio.sleep(0.04)
 
-
-
 # =========================================
 # TEXT DESIGN
 # =========================================
@@ -72,7 +73,6 @@ WARNING = (
     "⚠️ <b>This video will be deleted automatically</b>\n"
     "📥 Download now"
 )
-
 
 # =========================================
 # USER MENU KEYBOARD
@@ -123,7 +123,6 @@ DB=load(DB_FILE,{"movies":{}, "next":1, "next_title":1, "vip_only":[], "catalog"
 if "ref_meta" not in DB:
     DB["ref_meta"] = {}
 
-
 # FIX crash if vip_only missing
 if "vip_only" not in DB:
     DB["vip_only"]=[]
@@ -141,13 +140,93 @@ STATS=load(STATS_FILE,{"requests":[], "users":[], "codes":[]})
 BANNED_FILE="/data/banned.json"
 BANNED=load(BANNED_FILE,[])
 
+# =========================================
+# SQLITE BAZA (100k user uchun)
+# =========================================
+DB_SQLITE = "/data/bot.db"
 
-def save():
-    save_file(DB_FILE,DB)
-    save_file(USERS_FILE,USERS)
-    save_file(VIP_FILE,VIP)
-    save_file(STATS_FILE,STATS)
-    save_file(BANNED_FILE,BANNED)
+def init_sqlite():
+    """Bazani yaratish va jadvallarni hosil qilish"""
+    conn = sqlite3.connect(DB_SQLITE)
+    conn.execute('''
+        CREATE TABLE IF NOT EXISTS movies (
+            code TEXT PRIMARY KEY,
+            title TEXT NOT NULL,
+            msg_id INTEGER,
+            is_vip INTEGER DEFAULT 0
+        )
+    ''')
+    conn.execute('''
+        CREATE TABLE IF NOT EXISTS stats (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            movie_code TEXT,
+            timestamp REAL
+        )
+    ''')
+    conn.commit()
+    conn.close()
+    # Eski JSON ma'lumotlarni SQLite ga ko'chirish
+    sync_sqlite_from_json()
+
+def sync_sqlite_from_json():
+    """JSON dan SQLite ni to'ldirish (har safar save() da chaqiriladi)"""
+    try:
+        conn = sqlite3.connect(DB_SQLITE)
+        conn.execute("DELETE FROM movies")
+        for code, msg_id in DB["movies"].items():
+            title = DB.get("catalog", {}).get(code, {}).get("title", "Unknown")
+            is_vip = 1 if code in DB.get("vip_only", []) else 0
+            conn.execute(
+                "INSERT OR REPLACE INTO movies (code, title, msg_id, is_vip) VALUES (?,?,?,?)",
+                (code, title, msg_id, is_vip)
+            )
+        conn.commit()
+        conn.close()
+    except:
+        pass
+
+def save_with_sqlite():
+    """JSON ga saqlash va SQLite ni yangilash"""
+    save_file(DB_FILE, DB)
+    save_file(USERS_FILE, USERS)
+    save_file(VIP_FILE, VIP)
+    save_file(STATS_FILE, STATS)
+    save_file(BANNED_FILE, BANNED)
+    sync_sqlite_from_json()
+
+# Eski save funksiyasini yangisiga almashtiramiz
+save = save_with_sqlite
+
+# =========================================
+# RATE LIMITER (100k user uchun)
+# =========================================
+class RateLimiter:
+    def __init__(self):
+        self.requests = defaultdict(list)
+        self.banned = set()
+
+    def check(self, user_id):
+        now = time.time()
+        # 1 soniyada 5 ta so'rov
+        self.requests[user_id] = [t for t in self.requests[user_id] if t > now - 1]
+        if len(self.requests[user_id]) >= 5:
+            return False
+        self.requests[user_id].append(now)
+        return True
+
+rate_limiter = RateLimiter()
+
+# =========================================
+# CACHE (tezlik uchun)
+# =========================================
+@lru_cache(maxsize=1000)
+def get_cached_movie(code):
+    return DB.get("catalog", {}).get(code, {})
+
+@lru_cache(maxsize=1000)
+def get_cached_msg_id(code):
+    return DB["movies"].get(code)
 
 # =========================================
 # STATES
@@ -676,6 +755,11 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
 
     uid=update.effective_user.id
 
+    # Rate limit tekshirish
+    if not rate_limiter.check(uid):
+        await update.message.reply_text("⏳ Sekinroq yozing")
+        return
+
     if str(uid) in BANNED:
         await update.message.reply_text("You are banned 🚫")
         return
@@ -735,8 +819,6 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
             f"✅ {code_val} new title - {new_title}"
         )
         return
-
-
 
 
     # ADDTITLE FLOW
@@ -809,7 +891,6 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
         return
 
 
-    
     # ================= UPLOAD FIXED =================
     if uid == ADMIN_ID and context.user_data.get("upload") and (
         update.message.video or update.message.document
@@ -1296,11 +1377,11 @@ async def titles(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("❌ No titles found")
         return
 
-    text = "🎬 <b>All Movie Titles</b>"
+    text = "🎬 <b>All Movie Titles</b>\n\n"
 
     for code, data in sorted(catalog.items(), key=lambda x: x[0]):
         title = data.get("title", "No title")
-        text += f"🔢 <b>{code}</b> — {title}"
+        text += f"🔢 <b>{code}</b> — {title}\n\n"
 
     await update.message.reply_text(text, parse_mode="HTML")
 
@@ -1417,6 +1498,7 @@ async def removevips(update:Update,context:ContextTypes.DEFAULT_TYPE):
 # =========================================
 
 async def post_init(app):
+    init_sqlite()  # SQLite bazani yaratish
     asyncio.create_task(queue_worker())
     asyncio.create_task(vip_checker(app))
     asyncio.create_task(autosave_stats_loop())
@@ -1526,89 +1608,3 @@ def main():
 
 if __name__=="__main__":
     main()
-
-
-async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # ensure message exists
-    if not update.message or not update.message.text:
-        return
-
-    text = update.message.text.strip()
-
-    # If user pressed the Search menu button, show two options (no Back button)
-    if text.startswith("Search"):
-        kb = ReplyKeyboardMarkup([["By Name", "By Code"]], resize_keyboard=True)
-        await update.message.reply_text("Choose search method:", reply_markup=kb)
-        return
-
-    # If user chose By Name -> enter name search mode
-    if text == "By Name":
-        context.user_data["search_mode"] = "name"
-        await update.message.reply_text("Send movie name")
-        return
-
-    # If user chose By Code -> enter code search mode
-    if text == "By Code":
-        context.user_data["search_mode"] = "code"
-        await update.message.reply_text("Send movie code")
-        return
-
-    if text == "Back":
-        context.user_data.pop("search_mode", None)
-
-        await update.message.reply_text(
-            TXT_START,
-            parse_mode="HTML",
-            reply_markup=USER_MENU
-        )
-        return
-
-    # If we are in search mode, handle accordingly
-    if context.user_data.get("search_mode"):
-        mode = context.user_data.get("search_mode")
-        # consume the mode
-        context.user_data.pop("search_mode", None)
-
-        catalog = DB.get("catalog", {})
-
-        # search by code (exact match)
-        if mode == "code":
-            movie = catalog.get(text)
-            if not movie:
-                await update.message.reply_text("❌ Movie not found")
-                return
-            title = movie.get("title", "")
-            await update.message.reply_text(f"🎬 {title}\\n\\nCode: {text}")
-            return
-
-        # search by name (partial match)
-        if mode == "name":
-            keyword = text.lower()
-            results = []
-            for code, data in catalog.items():
-                title = data.get("title", "")
-                if keyword in title.lower():
-                    results.append((code, title))
-            if not results:
-                await update.message.reply_text("❌ No results found")
-                return
-            msg = "🔎 Results:\\n\\n"
-            for i, (c, t) in enumerate(results, 1):
-                msg += f"{i}. {t} - {c}\\n"
-            await update.message.reply_text(msg)
-            return
-
-    # If user sent a plain numeric code (without entering search mode)
-    if re.fullmatch(r"\\d+", text):
-        catalog = DB.get("catalog", {})
-        movie = catalog.get(text)
-        if movie:
-            title = movie.get("title", "")
-            await update.message.reply_text(f"🎬 {title}\\n\\nCode: {text}")
-            return
-
-    # fallback
-    try:
-        await update.message.reply_text("I didn't understand that. Use the menu.", reply_markup=USER_MENU)
-    except Exception:
-        pass
