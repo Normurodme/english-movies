@@ -1036,41 +1036,42 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
 
     if text and "Request Movie" in text:
         context.user_data.pop("search_mode", None)
-        await message_cmd(update, context)
+        # Request Movie bosilganda, msg_mode = "user" qilamiz
+        context.user_data["msg_mode"] = "user"
+        await update.message.reply_text("You can request movie 📽")
         return
 
     # ------------------------
-    # MESSAGE FLOW — moved here so menu buttons override it
+    # MESSAGE FLOW - FIXED VERSION
     # ------------------------
-    if context.user_data.get("msg_mode"):
-        mode=context.user_data.get("msg_mode")
+    if context.user_data.get("msg_mode") == "user":
+        # USER SEND TO CHANNEL (faqat bitta xabar)
+        try:
+            txt = update.message.text or ""
+            await context.bot.send_message(
+                MESSAGE_CHANNEL,
+                f"📩 Message from {uid}:\n{txt}"
+            )
+            await update.message.reply_text("✅ Sent to admin")
+        except:
+            await update.message.reply_text("❌ Failed")
+        
+        # MUHIM: msg_mode ni tozalaymiz - keyingi xabarlar odatdagidek ishlaydi
+        context.user_data.pop("msg_mode", None)
+        return
 
-        # ADMIN REPLY TO USER
-        if mode=="admin":
-            target=context.user_data.get("msg_target")
-            try:
-                await update.message.copy(target)
-                await update.message.reply_text("✅ Sent")
-            except:
-                await update.message.reply_text("❌ Failed to send")
-            context.user_data.clear()
-            return
-
-        # USER SEND TO CHANNEL
-        if mode=="user":
-            # if user typed a menu command, ignore msg_mode and let menu handle (safety)
-            # but since we moved this block after menu handling, this is mostly safe
-            try:
-                txt=update.message.text or ""
-                await context.bot.send_message(
-                    MESSAGE_CHANNEL,
-                    f"📩 Message from {uid}:\n{txt}"
-                )
-                await update.message.reply_text("✅ Sent to admin")
-            except:
-                await update.message.reply_text("❌ Failed")
-            context.user_data.clear()
-            return
+    # ------------------------
+    # ADMIN REPLY TO USER (faqat admin uchun)
+    # ------------------------
+    if uid == ADMIN_ID and context.user_data.get("msg_mode") == "admin":
+        target = context.user_data.get("msg_target")
+        try:
+            await update.message.copy(target)
+            await update.message.reply_text("✅ Sent")
+        except:
+            await update.message.reply_text("❌ Failed to send")
+        context.user_data.clear()
+        return
 
     # ------------------------
     # SEARCH MODE (must run AFTER menu & msg_mode handling, BEFORE treating text as code)
@@ -1323,9 +1324,9 @@ async def message_cmd(update:Update,context:ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Do you have message to user ?")
         return
 
-    # USER MODE
-    context.user_data["msg_mode"]="user"
-    await update.message.reply_text("You can request movie 📽")
+    # USER MODE - endi bu funksiya faqat admin uchun ishlaydi
+    # Userlar uchun menu'dan "Request Movie" tugmasi ishlaydi
+    pass
 
 
 
