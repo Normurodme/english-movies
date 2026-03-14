@@ -80,7 +80,7 @@ WARNING = (
 USER_MENU = ReplyKeyboardMarkup(
     [
         ["Search 🔍", "Top 🔝"],
-        ["VIP 🔐", "🎬 Request Movie"],
+        ["Vip 🔐", "🎬 Request Movie"],
         ["Referral"]
     ],
     resize_keyboard=True
