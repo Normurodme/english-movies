@@ -51,7 +51,6 @@ TXT_START = (
     "🎬 <b>English Movie Time</b>\n\n"
     "Send movie code\n"
     "Example: <code>12</code>\n\n"
-    "🔎 /search  |  👑 /vip"
 )
 TXT_WAIT = "⏳ Processing your request... Please wait"
 TXT_NOT_FOUND = "❌ Movie not found\n\n🔎 Try Search to find by name"
