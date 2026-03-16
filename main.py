@@ -980,10 +980,13 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
 
     if not text: return
 
-    # MENU BUTTONS (process these BEFORE message-mode)
+    # =============================================
+    # MENU BUTTONLAR (bular adminga xabar sifatida bormaydi)
+    # =============================================
+    
+    # Search 🔍
     if text and text.startswith("Search"):
         context.user_data.pop("msg_mode", None)
-
         kb = ReplyKeyboardMarkup(
             [
                 ["By Name", "By Code"],
@@ -991,61 +994,57 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
             ],
             resize_keyboard=True
         )
-
-        await update.message.reply_text(
-            "Choose search method",
-            reply_markup=kb
-        )
+        await update.message.reply_text("Choose search method", reply_markup=kb)
         return
 
     if text == "By Name":
+        context.user_data.pop("msg_mode", None)
         context.user_data["search_mode"] = "name"
         await update.message.reply_text("Send movie name")
         return
 
     if text == "By Code":
+        context.user_data.pop("msg_mode", None)
         context.user_data["search_mode"] = "code"
         await update.message.reply_text("Send movie code")
         return
 
     if text == "Back":
+        context.user_data.pop("msg_mode", None)
         context.user_data.pop("search_mode", None)
-
-        await update.message.reply_text(
-            TXT_START,
-            parse_mode="HTML",
-            reply_markup=USER_MENU
-        )
+        await update.message.reply_text(TXT_START, parse_mode="HTML", reply_markup=USER_MENU)
         return
 
-
+    # Top 🔝
     if text and text.startswith("Top"):
-        context.user_data.pop("search_mode", None)
+        context.user_data.pop("msg_mode", None)
         await top_cmd(update, context)
         return
 
+    # Vip 🔐
     if text and text.startswith("Vip"):
-        context.user_data.pop("search_mode", None)
+        context.user_data.pop("msg_mode", None)
         await vip(update, context)
         return
 
+    # Referral
     if text and text.startswith("Referral"):
-        context.user_data.pop("search_mode", None)
+        context.user_data.pop("msg_mode", None)
         await referral(update, context)
         return
 
+    # 🎬 Request Movie
     if text and "Request Movie" in text:
-        context.user_data.pop("search_mode", None)
-        # Request Movie bosilganda, msg_mode = "user" qilamiz
-        context.user_data["msg_mode"] = "user"
+        context.user_data.pop("msg_mode", None)  # Eski tozalash
+        context.user_data["msg_mode"] = "awaiting_message"  # Yangi holat
         await update.message.reply_text("You can request movie 📽")
         return
 
-    # ------------------------
-    # MESSAGE FLOW - FIXED VERSION
-    # ------------------------
-    if context.user_data.get("msg_mode") == "user":
-        # USER SEND TO CHANNEL (faqat bitta xabar)
+    # =============================================
+    # MESSAGE FLOW - FAQAT XABAR UCHUN
+    # =============================================
+    if context.user_data.get("msg_mode") == "awaiting_message":
+        # Bu xabar adminga boradi
         try:
             txt = update.message.text or ""
             await context.bot.send_message(
@@ -1056,7 +1055,7 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
         except:
             await update.message.reply_text("❌ Failed")
         
-        # MUHIM: msg_mode ni tozalaymiz - keyingi xabarlar odatdagidek ishlaydi
+        # Xabar yuborilgandan keyin HOLATNI TOZALAYMIZ
         context.user_data.pop("msg_mode", None)
         return
 
@@ -1074,89 +1073,65 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
         return
 
     # ------------------------
-    # SEARCH MODE (must run AFTER menu & msg_mode handling, BEFORE treating text as code)
+    # SEARCH MODE
     # ------------------------
     if context.user_data.get("search_mode"):
-
         mode = context.user_data.get("search_mode")
         context.user_data.pop("search_mode", None)
-
         catalog = DB.get("catalog", {})
 
         if mode == "code":
-
             item = catalog.get(text)
-
             if not item:
                 await update.message.reply_text("❌ Movie not found")
                 return
-
             title = item.get("title","")
-
-            # Try to get stored message id for this code (media)
             msg_id = DB.get("movies", {}).get(text)
             if not msg_id:
                 await update.message.reply_text("❌ Movie not found")
                 return
-
-            # VIP protection: block non-VIP users from VIP-only movies
             vip_list = set(str(x) for x in DB.get("vip_only", []))
             if text in vip_list and not is_vip(uid):
                 await update.message.reply_text(TXT_VIP_ONLY)
                 return
-
-            # Log request statistics (keeps behaviour similar to code-request flow)
             now = time.time()
             STATS.setdefault("codes", []).append((text, now))
             STATS.setdefault("requests", []).append(now)
             STATS.setdefault("users", []).append((uid, now))
             mark_stats_dirty()
-
-            # Enqueue media to be delivered (caption will include Name + WARNING)
             await SEND_QUEUE.put((context, uid, msg_id, is_vip(uid), title))
             return
 
-
         if mode == "name":
-
             keyword = text.lower()
             results = []
-
             for code_val,data in catalog.items():
-
                 title = data.get("title","")
-
                 if keyword in title.lower():
                     results.append((code_val,title))
-
             if not results:
                 await update.message.reply_text("❌ No results found")
                 return
-
             text_out="🔎 <b>Results :</b>\n\n"
-
             for i,(c,title) in enumerate(results,1):
                 text_out+=f"{i}. {title} - <b>{c}</b>\n\n"
-
             await update.message.reply_text(text_out,parse_mode="HTML")
             return
 
-
-    # LIMIT + COOLDOWN
+    # ------------------------
+    # ODDATDAGI KINO KODI
+    # ------------------------
     now=time.time()
     vip_user=is_vip(uid)
-
     delay = 5 if vip_user else 5
     daily_limit = 30 if vip_user else 30
 
-    # cooldown
     if uid in LAST_REQ and now-LAST_REQ[uid]<delay:
         await update.message.reply_text(TXT_WAIT)
         return
 
     LAST_REQ[uid]=now
 
-    # daily limit
     logs=USER_REQS.get(uid,[])
     logs=[t for t in logs if now-t<86400]
     if len(logs)>=daily_limit:
@@ -1166,13 +1141,11 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
     logs.append(now)
     USER_REQS[uid]=logs
 
-
     msg_id=DB["movies"].get(text)
     if not msg_id:
         await update.message.reply_text(TXT_NOT_FOUND)
         return
 
-    # VIP PROTECTION
     vip_list = set(str(x) for x in DB.get("vip_only",[]))
     if text in vip_list and not is_vip(uid):
         await update.message.reply_text(TXT_VIP_ONLY)
