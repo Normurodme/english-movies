@@ -1414,7 +1414,9 @@ async def referral(update:Update, context:ContextTypes.DEFAULT_TYPE):
     count = REFERRALS.get(str(uid), 0)
 
     text = (
-        "You can get 1 day VIP by inviting 5 friends , 3 days VIP with 10 friends\n\n"
+        "You can get:\n"
+        "1 day VIP by inviting 5 friends\n"
+        "3 days VIP with 10 friends\n\n"
         f"{link}\n\n"
         f"👥 Your referrals: {count}"
     )
