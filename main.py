@@ -744,13 +744,48 @@ async def ntitle(update:Update,context:ContextTypes.DEFAULT_TYPE):
     )
 
 # =========================================
-# ADS
+# ADS - VIP USERLARGA XABAR YUBORMAYDI
 # =========================================
 
 async def ads(update:Update,context:ContextTypes.DEFAULT_TYPE):
-    if update.effective_user.id!=ADMIN_ID: return
-    context.user_data["ads"]=True
-    await update.message.reply_text("📢 Send advertisement")
+    if update.effective_user.id != ADMIN_ID:
+        return
+    
+    # Agar hali xabar kutilayotgan bo'lmasa
+    if not context.user_data.get("ads"):
+        context.user_data["ads"] = True
+        await update.message.reply_text("📢 Send advertisement (VIP users will NOT receive it)")
+        return
+    
+    # Xabar yuborish
+    context.user_data.pop("ads", None)
+    msg = update.message
+    
+    sent = 0
+    failed = 0
+    vip_skipped = 0
+    
+    # BARCHA userlarga yuborish (VIPlardan tashqari)
+    for u in USERS:
+        if u == ADMIN_ID:
+            continue
+        # VIP userlarga xabar yubormaslik
+        if is_vip(u):
+            vip_skipped += 1
+            continue
+        try:
+            await msg.copy(u)
+            sent += 1
+            await asyncio.sleep(0.05)  # Rate limitdan saqlanish
+        except Exception as e:
+            failed += 1
+    
+    await update.message.reply_text(
+        f"✅ Sent: {sent}\n"
+        f"❌ Failed: {failed}\n"
+        f"👑 VIP skipped: {vip_skipped}\n"
+        f"👥 Total users: {len(USERS)}"
+    )
 
 # =========================================
 # STATS
@@ -885,21 +920,8 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"✅ {code} → {title}")
         return
 
-    # ADS SEND
-
-    if uid==ADMIN_ID and context.user_data.get("ads"):
-        context.user_data.clear()
-        sent=0
-        for u in USERS:
-            if u==ADMIN_ID: continue
-            if is_vip(u): continue
-            try:
-                await update.message.copy(u)
-                sent+=1
-            except:
-                pass
-        await update.message.reply_text(f"✅ Sent: {sent}")
-        return
+    # ADS SEND - endi bu qism ishlatilmaydi, ads funksiyasi alohida ishlaydi
+    # (ads funksiyasida allaqachon xabar yuboriladi)
 
     # NEXT SET - ENDI NOMADORI KODLARNI QABUL QILADI
     if uid==ADMIN_ID and context.user_data.get("setnext"):
