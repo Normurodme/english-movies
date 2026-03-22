@@ -50,7 +50,7 @@ async def queue_worker():
 TXT_START = (
     "🎬 <b>English Movie Time</b>\n\n"
     "Send movie code\n"
-    "Example: <code>12</code>\n\n"
+    "Example: <code>12</code> or <code>19.1</code>\n\n"
 )
 TXT_WAIT = "⏳ Processing your request... Please wait"
 TXT_NOT_FOUND = "❌ Movie not found\n\n🔎 Try Search to find by name"
@@ -65,7 +65,7 @@ TXT_VIP_ONLY = (
 )
 TXT_DONE = "✅ Saved"
 TXT_DELETED = "🗑 Deleted"
-TXT_SETNEXT = "📌 Current code: <b>{}</b>\nSend new code"
+TXT_SETNEXT = "📌 Current code: <b>{}</b>\nSend new code (e.g., 99 or 88.1)"
 TXT_UPDATED = "✅ Next code updated → {}"
 
 WARNING = (
@@ -443,7 +443,7 @@ async def start(update:Update,context:ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(TXT_START,parse_mode="HTML", reply_markup=USER_MENU)
 
 # =========================================
-# DELETE COMMAND (NEW)
+# DELETE COMMAND (NEW) - NOMADORI KODLARNI O'CHIRISH
 # =========================================
 
 async def delete_movie(update:Update,context:ContextTypes.DEFAULT_TYPE):
@@ -451,11 +451,12 @@ async def delete_movie(update:Update,context:ContextTypes.DEFAULT_TYPE):
         return
 
     if not context.args:
-        await update.message.reply_text("Enter code: /delete 12")
+        await update.message.reply_text("Enter code: /delete 12 or /delete 88.1")
         return
 
     code = context.args[0]
 
+    # Nuqtali kodlarni ham qabul qilish
     if code not in DB["movies"]:
         await update.message.reply_text("❌ This movie does not exist")
         return
@@ -471,6 +472,10 @@ async def delete_movie(update:Update,context:ContextTypes.DEFAULT_TYPE):
 
     if code in DB.get("vip_only",[]):
         DB["vip_only"].remove(code)
+
+    # Catalog'dan ham o'chirish
+    if code in DB.get("catalog", {}):
+        del DB["catalog"][code]
 
     save()
 
@@ -711,7 +716,7 @@ async def done(update:Update,context:ContextTypes.DEFAULT_TYPE):
     SERIAL_MODE=False
 
 # =========================================
-# NEXT CODE SETTER
+# NEXT CODE SETTER - ENDI NOMADORI KODLARNI QABUL QILADI
 # =========================================
 
 async def ndelete(update:Update,context:ContextTypes.DEFAULT_TYPE):
@@ -722,7 +727,7 @@ async def ndelete(update:Update,context:ContextTypes.DEFAULT_TYPE):
     context.user_data["setnext"]=True
 
     await update.message.reply_text(
-        f"📌 Current code: <b>{DB['next']}</b>\nSend new code",
+        f"📌 Current code: <b>{DB['next']}</b>\nSend new code (e.g., 99 or 88.1)",
         parse_mode="HTML"
     )
 
@@ -734,7 +739,7 @@ async def ntitle(update:Update,context:ContextTypes.DEFAULT_TYPE):
     context.user_data["setnexttitle"]=True
 
     await update.message.reply_text(
-        f"📌 Current title code: <b>{DB.get('next_title',1)}</b>\nSend new title code",
+        f"📌 Current title code: <b>{DB.get('next_title',1)}</b>\nSend new title code (e.g., 99 or 88.1)",
         parse_mode="HTML"
     )
 
@@ -896,24 +901,25 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"✅ Sent: {sent}")
         return
 
-    # NEXT SET
+    # NEXT SET - ENDI NOMADORI KODLARNI QABUL QILADI
     if uid==ADMIN_ID and context.user_data.get("setnext"):
         context.user_data.clear()
 
-        if not text.isdigit():
-            await update.message.reply_text("Send numbers only")
+        # Nuqtali kodlarni tekshirish (masalan: 88.1, 76.65)
+        if not re.match(r'^\d+(\.\d+)?$', text):
+            await update.message.reply_text("Send number like 99 or 88.1")
             return
 
-        DB["next"]=int(text)
+        DB["next"] = text  # Nuqtali kod bo'lishi mumkin
         save()
         await update.message.reply_text(f"✅ Next code updated → {text}")
         return
 
-    # NEXT TITLE SET
+    # NEXT TITLE SET - ENDI NOMADORI KODLARNI QABUL QILADI
     if uid==ADMIN_ID and context.user_data.get("setnexttitle"):
         context.user_data.clear()
         if not re.match(r'^\d+(\.\d+)?$', text):
-            await update.message.reply_text("Send number like 88 or 88.1")
+            await update.message.reply_text("Send number like 99 or 88.1")
             return
         DB["next_title"]=text
         save()
@@ -929,11 +935,18 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
         try:
 
             if context.user_data["upload"]=="movie":
-                code=str(DB["next"])
-                DB["next"]+=1
+                # Kino uchun kod: next ni olamiz (nuqtali bo'lishi mumkin)
+                code = str(DB["next"])
+                # Keyingi kodni yangilash
+                _next = DB["next"]
+                if isinstance(_next, str) and "." in _next:
+                    base, dec = _next.split(".", 1)
+                    DB["next"] = f"{base}.{int(dec)+1}"
+                else:
+                    DB["next"] = int(_next) + 1
             else:
-                code=f"{SERIAL_CODE}.{SERIAL_PART}"
-                SERIAL_PART+=1
+                code = f"{SERIAL_CODE}.{SERIAL_PART}"
+                SERIAL_PART += 1
 
             caption = f"🔒Code: {code}" if context.user_data.get("vip") else f"Code: {code}"
 
@@ -952,14 +965,14 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
             except:
                 pass
 
-            DB["movies"][code]=sent.message_id
+            DB["movies"][code] = sent.message_id
 
             if context.user_data.get("vip"):
                 DB.setdefault("vip_only",[])
                 if code not in DB["vip_only"]:
                     DB["vip_only"].append(code)
 
-            if context.user_data["upload"]=="movie":
+            if context.user_data["upload"] == "movie":
                 context.user_data.clear()
 
             save()
@@ -1035,8 +1048,8 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
 
     # 🎬 Request Movie
     if text and "Request Movie" in text:
-        context.user_data.pop("msg_mode", None)  # Eski tozalash
-        context.user_data["msg_mode"] = "awaiting_message"  # Yangi holat
+        context.user_data.pop("msg_mode", None)
+        context.user_data["msg_mode"] = "awaiting_message"
         await update.message.reply_text("You can request movie 📽")
         return
 
@@ -1044,7 +1057,6 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
     # MESSAGE FLOW - FAQAT XABAR UCHUN
     # =============================================
     if context.user_data.get("msg_mode") == "awaiting_message":
-        # Bu xabar adminga boradi
         try:
             txt = update.message.text or ""
             await context.bot.send_message(
@@ -1055,7 +1067,6 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
         except:
             await update.message.reply_text("❌ Failed")
         
-        # Xabar yuborilgandan keyin HOLATNI TOZALAYMIZ
         context.user_data.pop("msg_mode", None)
         return
 
@@ -1119,7 +1130,7 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
             return
 
     # ------------------------
-    # ODDATDAGI KINO KODI
+    # ODDATDAGI KINO KODI (nuqtali kodlarni ham qabul qiladi)
     # ------------------------
     now=time.time()
     vip_user=is_vip(uid)
