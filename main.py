@@ -813,7 +813,7 @@ async def stats(update:Update,context:ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(txt,parse_mode="HTML")
 
 # =========================================
-# MESSAGE HANDLER
+# MESSAGE HANDLER (FIXED)
 # =========================================
 
 async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
@@ -838,10 +838,22 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
     if text:
         text = text.strip()
 
-    if text and text.startswith("/"):
-        context.user_data.pop("search_mode", None)
-        context.user_data.pop("msg_mode", None)
-        return
+    # =============================================
+    # ADDTITLE MODE - HANDLE /stop AND OTHER COMMANDS
+    # =============================================
+    if uid == ADMIN_ID and context.user_data.get("addtitle"):
+        # If the message is /stop, exit addtitle mode
+        if text == "/stop":
+            context.user_data.pop("addtitle", None)
+            await update.message.reply_text("Stopped.")
+            return
+        # If the message starts with / (other commands), clear addtitle mode and let command handlers process
+        if text and text.startswith("/"):
+            context.user_data.pop("addtitle", None)
+            # Do not return here; we want the message to be handled by command handlers.
+            # We'll let the dispatcher continue by not returning anything.
+            # But we must not proceed with further processing in msg, so we return.
+            return
 
     # ================= EDITTITLE FLOW =================
 
@@ -891,9 +903,10 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
         return
 
 
-    # ADDTITLE FLOW
+    # ADDTITLE FLOW (non-command messages)
     if uid==ADMIN_ID and context.user_data.get("addtitle"):
-        if update.message.text=="/stop":
+        # Here text is a normal title (not a command)
+        if update.message.text=="/stop":   # already handled above, but keep for safety
             context.user_data.clear()
             await update.message.reply_text("Stopped.")
             return
