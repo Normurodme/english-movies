@@ -649,17 +649,15 @@ async def callbacks(update:Update,context:ContextTypes.DEFAULT_TYPE):
         return
 
     # =========================================
-    # SEARCH RESULTS HANDLING (FIXED)
+    # SEARCH RESULTS HANDLING
     # =========================================
     
     # Search result selection: search_sel_7 or search_sel_95.1
     if q.data.startswith("search_sel_"):
-        # Extract the selection (could be index number like 7 or code like 95.1)
         selection = q.data.replace("search_sel_", "")
         
         search_results = context.user_data.get("search_results", [])
         
-        # Try to find the movie
         movie_code = None
         movie_title = None
         
@@ -669,7 +667,7 @@ async def callbacks(update:Update,context:ContextTypes.DEFAULT_TYPE):
             if 0 <= idx < len(search_results):
                 movie_code, movie_title = search_results[idx]
         
-        # If selection is a code (like 95.1) - find by code
+        # If selection is a code
         if not movie_code:
             for code, title in search_results:
                 if code == selection:
@@ -698,10 +696,9 @@ async def callbacks(update:Update,context:ContextTypes.DEFAULT_TYPE):
             await q.message.reply_text("❌ Invalid selection")
         return
     
-    # Search pagination: search_page_2 or search_page_1_next
+    # Search pagination
     if q.data.startswith("search_page_"):
         parts = q.data.split("_")
-        # Format: search_page_{page} or search_page_{page}_next or search_page_{page}_prev
         if len(parts) >= 3:
             page = int(parts[2])
             if len(parts) == 4:
@@ -720,7 +717,6 @@ async def callbacks(update:Update,context:ContextTypes.DEFAULT_TYPE):
         if search_results:
             context.user_data.pop("search_results", None)
             await q.message.edit_text("🔙 Returned to main menu")
-            # Send main menu
             await q.message.reply_text(TXT_START, parse_mode="HTML", reply_markup=USER_MENU)
         return
 
@@ -776,7 +772,7 @@ async def callbacks(update:Update,context:ContextTypes.DEFAULT_TYPE):
         return
 
 # =========================================
-# SEARCH PAGE DISPLAY FUNCTION (FIXED)
+# SEARCH PAGE DISPLAY FUNCTION
 # =========================================
 async def show_search_page(message, context, results, page=1, edit=True):
     """Display search results with pagination"""
@@ -800,7 +796,6 @@ async def show_search_page(message, context, results, page=1, edit=True):
     keyboard = []
     row = []
     for i, (code, title) in enumerate(page_results, start=start + 1):
-        # Use search_sel_ with index number for simplicity
         row.append(InlineKeyboardButton(str(i), callback_data=f"search_sel_{i}"))
         if len(row) == 5:
             keyboard.append(row)
@@ -945,7 +940,7 @@ async def stats(update:Update,context:ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(txt,parse_mode="HTML")
 
 # =========================================
-# MESSAGE HANDLER (FIXED SEARCH MODE WITH PAGINATION)
+# MESSAGE HANDLER (FIXED - MULTIPLE SEARCHES)
 # =========================================
 
 async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
@@ -974,82 +969,56 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
     # ADDTITLE MODE - HANDLE /stop AND OTHER COMMANDS
     # =============================================
     if uid == ADMIN_ID and context.user_data.get("addtitle"):
-        # If the message is /stop, exit addtitle mode
         if text == "/stop":
             context.user_data.pop("addtitle", None)
             await update.message.reply_text("Stopped.")
             return
-        # If the message starts with / (other commands), clear addtitle mode and let command handlers process
         if text and text.startswith("/"):
             context.user_data.pop("addtitle", None)
             return
 
     # ================= EDITTITLE FLOW =================
-
-    # STEP 1 — CODE
     if uid==ADMIN_ID and context.user_data.get("edit_step")=="code":
-
         code_val = str(update.message.text.strip())
-
         catalog = {str(k): v for k,v in DB.get("catalog", {}).items()}
-
         if code_val not in catalog:
             await update.message.reply_text("❌ Bunday kod topilmadi")
             return
-
         context.user_data["edit_code"] = code_val
         context.user_data["edit_step"] = "title"
-
-        await update.message.reply_text(
-            f"{code_val} uchun yangi title jo'nating"
-        )
+        await update.message.reply_text(f"{code_val} uchun yangi title jo'nating")
         return
 
-
-    # STEP 2 — NEW TITLE
     if uid==ADMIN_ID and context.user_data.get("edit_step")=="title":
-
         new_title = update.message.text.strip()
         code_val = context.user_data.get("edit_code")
-
         if not code_val:
             context.user_data.clear()
             return
-
         DB.setdefault("catalog", {})
         DB["catalog"].setdefault(code_val, {})
-
         DB["catalog"][code_val]["title"] = new_title
         DB["catalog"][code_val].setdefault("msg_id", None)
         DB["catalog"][code_val].setdefault("date", time.time())
-
         save()
         context.user_data.clear()
-
-        await update.message.reply_text(
-            f"✅ {code_val} new title - {new_title}"
-        )
+        await update.message.reply_text(f"✅ {code_val} new title - {new_title}")
         return
 
-
-    # ADDTITLE FLOW (non-command messages)
+    # ADDTITLE FLOW
     if uid==ADMIN_ID and context.user_data.get("addtitle"):
         if update.message.text=="/stop":
             context.user_data.clear()
             await update.message.reply_text("Stopped.")
             return
-
         title=update.message.text.strip()
         code=str(DB.get("next_title",1))
-
         _nt = str(DB.get("next_title",1))
-
         if "." in _nt:
             base,dec=_nt.split(".",1)
             DB["next_title"]=f"{base}.{int(dec)+1}"
         else:
             DB["next_title"]=int(_nt)+1
-
         DB.setdefault("catalog",{})
         DB["catalog"][code]={
             "title":title,
@@ -1057,25 +1026,21 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
             "date":time.time()
         }
         save()
-
         await update.message.reply_text(f"✅ {code} → {title}")
         return
 
-    # NEXT SET - ENDI NOMADORI KODLARNI QABUL QILADI
+    # NEXT SET
     if uid==ADMIN_ID and context.user_data.get("setnext"):
         context.user_data.clear()
-
-        # Nuqtali kodlarni tekshirish (masalan: 88.1, 76.65)
         if not re.match(r'^\d+(\.\d+)?$', text):
             await update.message.reply_text("Send number like 99 or 88.1")
             return
-
-        DB["next"] = text  # Nuqtali kod bo'lishi mumkin
+        DB["next"] = text
         save()
         await update.message.reply_text(f"✅ Next code updated → {text}")
         return
 
-    # NEXT TITLE SET - ENDI NOMADORI KODLARNI QABUL QILADI
+    # NEXT TITLE SET
     if uid==ADMIN_ID and context.user_data.get("setnexttitle"):
         context.user_data.clear()
         if not re.match(r'^\d+(\.\d+)?$', text):
@@ -1086,18 +1051,13 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"✅ Next title code updated → {text}")
         return
 
-
     # ================= UPLOAD FIXED =================
     if uid == ADMIN_ID and context.user_data.get("upload") and (
         update.message.video or update.message.document
     ):
-
         try:
-
             if context.user_data["upload"]=="movie":
-                # Kino uchun kod: next ni olamiz (nuqtali bo'lishi mumkin)
                 code = str(DB["next"])
-                # Keyingi kodni yangilash
                 _next = DB["next"]
                 if isinstance(_next, str) and "." in _next:
                     base, dec = _next.split(".", 1)
@@ -1107,15 +1067,12 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
             else:
                 code = f"{SERIAL_CODE}.{SERIAL_PART}"
                 SERIAL_PART += 1
-
             caption = f"🔒Code: {code}" if context.user_data.get("vip") else f"Code: {code}"
-
             sent = await context.bot.copy_message(
                 chat_id=STORAGE_CHANNEL_ID,
                 from_chat_id=update.effective_chat.id,
                 message_id=update.message.message_id
             )
-
             try:
                 await context.bot.edit_message_caption(
                     chat_id=STORAGE_CHANNEL_ID,
@@ -1124,27 +1081,18 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
                 )
             except:
                 pass
-
             DB["movies"][code] = sent.message_id
-
             if context.user_data.get("vip"):
                 DB.setdefault("vip_only",[])
                 if code not in DB["vip_only"]:
                     DB["vip_only"].append(code)
-
             if context.user_data["upload"] == "movie":
                 context.user_data.clear()
-
             save()
-
             await update.message.reply_text(f"{TXT_DONE}: {code}")
-
         except Exception as e:
             await update.message.reply_text(f"❌ Upload error:\n{e}")
-
         return
-    # =================================================
-
 
     # SUB CHECK
     if not await check_sub(uid,context):
@@ -1159,9 +1107,11 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
     
     # Search 🔍
     if text and text.startswith("Search"):
-        # Clear both search and msg modes
-        context.user_data.pop("search_mode", None)
         context.user_data.pop("msg_mode", None)
+        # Clear previous search results when starting new search
+        context.user_data.pop("search_results", None)
+        # Set search mode but keep it for multiple searches
+        context.user_data["search_mode"] = "waiting_for_method"
         kb = ReplyKeyboardMarkup(
             [
                 ["By Name", "By Code"],
@@ -1173,22 +1123,20 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
         return
 
     if text == "By Name":
-        # Switch to name search, clear msg_mode
         context.user_data.pop("msg_mode", None)
         context.user_data["search_mode"] = "name"
         await update.message.reply_text("Send movie name")
         return
 
     if text == "By Code":
-        # Switch to code search, clear msg_mode
         context.user_data.pop("msg_mode", None)
         context.user_data["search_mode"] = "code"
         await update.message.reply_text("Send movie code")
         return
 
     if text == "Back":
-        # Exit search mode and return to main menu
         context.user_data.pop("search_mode", None)
+        context.user_data.pop("search_results", None)
         context.user_data.pop("msg_mode", None)
         await update.message.reply_text(TXT_START, parse_mode="HTML", reply_markup=USER_MENU)
         return
@@ -1196,6 +1144,7 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
     # Top 🔝
     if text and text.startswith("Top"):
         context.user_data.pop("search_mode", None)
+        context.user_data.pop("search_results", None)
         context.user_data.pop("msg_mode", None)
         await top_cmd(update, context)
         return
@@ -1203,6 +1152,7 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
     # Vip 🔐
     if text and text.startswith("Vip"):
         context.user_data.pop("search_mode", None)
+        context.user_data.pop("search_results", None)
         context.user_data.pop("msg_mode", None)
         await vip(update, context)
         return
@@ -1210,6 +1160,7 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
     # Referral
     if text and text.startswith("Referral"):
         context.user_data.pop("search_mode", None)
+        context.user_data.pop("search_results", None)
         context.user_data.pop("msg_mode", None)
         await referral(update, context)
         return
@@ -1217,61 +1168,62 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
     # 🎬 Request Movie
     if text and "Request Movie" in text:
         context.user_data.pop("search_mode", None)
+        context.user_data.pop("search_results", None)
         context.user_data.pop("msg_mode", None)
         context.user_data["msg_mode"] = "awaiting_message"
         await update.message.reply_text("You can request movie 📽")
         return
 
     # =============================================
-    # SEARCH MODE (name or code) - WITH PAGINATION
+    # SEARCH MODE (name or code) - KEEP MODE AFTER USE
     # =============================================
-    if context.user_data.get("search_mode"):
-        mode = context.user_data.get("search_mode")  # "name" or "code"
-        # Remove the mode so it doesn't loop
+    if context.user_data.get("search_mode") == "name":
+        # Do NOT pop! Stay in search mode for next query.
+        catalog = DB.get("catalog", {})
+        
+        keyword = text.lower()
+        results = []
+        for code_val, data in catalog.items():
+            title = data.get("title", "")
+            if keyword in title.lower():
+                results.append((code_val, title))
+        
+        if not results:
+            await update.message.reply_text("❌ No results found")
+            return
+        
+        # Store results in user_data for pagination
+        context.user_data["search_results"] = results
+        
+        # Send first page
+        msg = await update.message.reply_text("🔍 Searching...")
+        await show_search_page(msg, context, results, page=1, edit=False)
+        return
+    
+    if context.user_data.get("search_mode") == "code":
+        # Code search - single result, clear mode after
         context.user_data.pop("search_mode", None)
         catalog = DB.get("catalog", {})
-
-        if mode == "code":
-            item = catalog.get(text)
-            if not item:
-                await update.message.reply_text("❌ Movie not found")
-                return
-            title = item.get("title","")
-            msg_id = DB.get("movies", {}).get(text)
-            if not msg_id:
-                await update.message.reply_text("❌ Movie not found")
-                return
-            vip_list = set(str(x) for x in DB.get("vip_only", []))
-            if text in vip_list and not is_vip(uid):
-                await update.message.reply_text(TXT_VIP_ONLY)
-                return
-            now = time.time()
-            STATS.setdefault("codes", []).append((text, now))
-            STATS.setdefault("requests", []).append(now)
-            STATS.setdefault("users", []).append((uid, now))
-            mark_stats_dirty()
-            await SEND_QUEUE.put((context, uid, msg_id, is_vip(uid), title))
+        item = catalog.get(text)
+        if not item:
+            await update.message.reply_text("❌ Movie not found")
             return
-
-        if mode == "name":
-            keyword = text.lower()
-            results = []
-            for code_val, data in catalog.items():
-                title = data.get("title", "")
-                if keyword in title.lower():
-                    results.append((code_val, title))
-            
-            if not results:
-                await update.message.reply_text("❌ No results found")
-                return
-            
-            # Store results in user_data for pagination
-            context.user_data["search_results"] = results
-            
-            # Send first page
-            msg = await update.message.reply_text("🔍 Searching...")
-            await show_search_page(msg, context, results, page=1, edit=False)
+        title = item.get("title","")
+        msg_id = DB.get("movies", {}).get(text)
+        if not msg_id:
+            await update.message.reply_text("❌ Movie not found")
             return
+        vip_list = set(str(x) for x in DB.get("vip_only", []))
+        if text in vip_list and not is_vip(uid):
+            await update.message.reply_text(TXT_VIP_ONLY)
+            return
+        now = time.time()
+        STATS.setdefault("codes", []).append((text, now))
+        STATS.setdefault("requests", []).append(now)
+        STATS.setdefault("users", []).append((uid, now))
+        mark_stats_dirty()
+        await SEND_QUEUE.put((context, uid, msg_id, is_vip(uid), title))
+        return
 
     # =============================================
     # MESSAGE FLOW - FAQAT XABAR UCHUN (awaiting_message)
@@ -1584,7 +1536,6 @@ async def titles(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # =========================================
 
 async def search(update:Update, context:ContextTypes.DEFAULT_TYPE):
-    # Fix: set search_mode to "name" instead of True
     context.user_data["search_mode"] = "name"
     await update.message.reply_text("Send a movie name")
 
