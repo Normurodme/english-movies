@@ -651,6 +651,62 @@ async def callbacks(update:Update,context:ContextTypes.DEFAULT_TYPE):
         )
         return
 
+    # SEARCH RESULTS CALLBACK (raqamli knopkalar)
+    if q.data.startswith("search_result_"):
+        parts = q.data.split("_")
+        # search_result_page_number
+        # search_result_1 (selection)
+        # search_result_page_2_next
+        # search_result_page_2_prev
+        
+        if len(parts) == 3 and parts[2].isdigit():
+            # search_result_{page}_{index} format
+            page = int(parts[1])
+            index = int(parts[2])
+            # Get stored results
+            search_results = context.user_data.get("search_results", [])
+            if search_results and index > 0 and index <= len(search_results):
+                code, title = search_results[index - 1]
+                # Send the movie
+                uid = update.effective_user.id
+                msg_id = DB.get("movies", {}).get(code)
+                if msg_id:
+                    vip_list = set(str(x) for x in DB.get("vip_only", []))
+                    if code in vip_list and not is_vip(uid):
+                        await q.message.reply_text(TXT_VIP_ONLY)
+                        return
+                    now = time.time()
+                    STATS.setdefault("codes", []).append((code, now))
+                    STATS.setdefault("requests", []).append(now)
+                    STATS.setdefault("users", []).append((uid, now))
+                    mark_stats_dirty()
+                    await SEND_QUEUE.put((context, uid, msg_id, is_vip(uid), title))
+                else:
+                    await q.message.reply_text("❌ Movie not found")
+                # Delete the search results message
+                await q.message.delete()
+            return
+        
+        elif len(parts) >= 3 and parts[2] in ["next", "prev"]:
+            # search_result_{page}_next or search_result_{page}_prev
+            current_page = int(parts[1])
+            if parts[2] == "next":
+                new_page = current_page + 1
+            else:
+                new_page = current_page - 1
+            
+            search_results = context.user_data.get("search_results", [])
+            if search_results:
+                await show_search_page(q.message, context, search_results, new_page)
+            return
+        
+        elif len(parts) == 2 and parts[1].isdigit():
+            # search_result_{page} - initial page navigation
+            page = int(parts[1])
+            search_results = context.user_data.get("search_results", [])
+            if search_results:
+                await show_search_page(q.message, context, search_results, page)
+            return
 
     if q.data=="check":
         try:
@@ -698,6 +754,57 @@ async def callbacks(update:Update,context:ContextTypes.DEFAULT_TYPE):
         context.user_data["upload"]="serial"
         context.user_data["vip"]=True
         await q.message.edit_text("🔒 Send VIP series")
+
+# =========================================
+# SEARCH PAGE DISPLAY FUNCTION
+# =========================================
+async def show_search_page(message, context, results, page=1, edit=True):
+    """Display search results with pagination"""
+    per_page = 10
+    total_pages = (len(results) + per_page - 1) // per_page
+    
+    if page < 1:
+        page = 1
+    if page > total_pages:
+        page = total_pages
+    
+    start = (page - 1) * per_page
+    end = start + per_page
+    page_results = results[start:end]
+    
+    text = f"🔎 <b>Results Found: {len(results)}</b>\n\n"
+    for i, (code, title) in enumerate(page_results, start=start + 1):
+        text += f"{i}. {title} - <code>{code}</code>\n"
+    
+    # Create keyboard with number buttons
+    keyboard = []
+    row = []
+    for i, (code, title) in enumerate(page_results, start=start + 1):
+        row.append(InlineKeyboardButton(str(i), callback_data=f"search_result_{page}_{i}"))
+        if len(row) == 5:  # 5 buttons per row
+            keyboard.append(row)
+            row = []
+    if row:
+        keyboard.append(row)
+    
+    # Navigation buttons
+    nav_row = []
+    if page > 1:
+        nav_row.append(InlineKeyboardButton("⬅️ Oldingi", callback_data=f"search_result_{page}_prev"))
+    if page < total_pages:
+        nav_row.append(InlineKeyboardButton("Keyingi ➡️", callback_data=f"search_result_{page}_next"))
+    if nav_row:
+        keyboard.append(nav_row)
+    
+    # Back button
+    keyboard.append([InlineKeyboardButton("🔙 Back to Menu", callback_data="search_back")])
+    
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    
+    if edit:
+        await message.edit_text(text, parse_mode="HTML", reply_markup=reply_markup)
+    else:
+        await message.reply_text(text, parse_mode="HTML", reply_markup=reply_markup)
 
 # =========================================
 # DONE SERIAL
@@ -813,7 +920,7 @@ async def stats(update:Update,context:ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(txt,parse_mode="HTML")
 
 # =========================================
-# MESSAGE HANDLER (FIXED SEARCH MODE)
+# MESSAGE HANDLER (FIXED SEARCH MODE WITH PAGINATION)
 # =========================================
 
 async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
@@ -850,9 +957,6 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
         # If the message starts with / (other commands), clear addtitle mode and let command handlers process
         if text and text.startswith("/"):
             context.user_data.pop("addtitle", None)
-            # Do not return here; we want the message to be handled by command handlers.
-            # We'll let the dispatcher continue by not returning anything.
-            # But we must not proceed with further processing in msg, so we return.
             return
 
     # ================= EDITTITLE FLOW =================
@@ -905,8 +1009,7 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
 
     # ADDTITLE FLOW (non-command messages)
     if uid==ADMIN_ID and context.user_data.get("addtitle"):
-        # Here text is a normal title (not a command)
-        if update.message.text=="/stop":   # already handled above, but keep for safety
+        if update.message.text=="/stop":
             context.user_data.clear()
             await update.message.reply_text("Stopped.")
             return
@@ -932,9 +1035,6 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
 
         await update.message.reply_text(f"✅ {code} → {title}")
         return
-
-    # ADS SEND - endi bu qism ishlatilmaydi, ads funksiyasi alohida ishlaydi
-    # (ads funksiyasida allaqachon xabar yuboriladi)
 
     # NEXT SET - ENDI NOMADORI KODLARNI QABUL QILADI
     if uid==ADMIN_ID and context.user_data.get("setnext"):
@@ -1098,11 +1198,12 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
         return
 
     # =============================================
-    # SEARCH MODE (name or code) - KEEP MODE AFTER USE
+    # SEARCH MODE (name or code) - WITH PAGINATION
     # =============================================
     if context.user_data.get("search_mode"):
         mode = context.user_data.get("search_mode")  # "name" or "code"
-        # Do NOT pop! Stay in search mode for next query.
+        # Remove the mode so it doesn't loop
+        context.user_data.pop("search_mode", None)
         catalog = DB.get("catalog", {})
 
         if mode == "code":
@@ -1134,13 +1235,17 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
                 title = data.get("title", "")
                 if keyword in title.lower():
                     results.append((code_val, title))
+            
             if not results:
                 await update.message.reply_text("❌ No results found")
                 return
-            text_out = "🔎 <b>Results :</b>\n\n"
-            for i, (c, title) in enumerate(results, 1):
-                text_out += f"{i}. {title} - <b>{c}</b>\n\n"
-            await update.message.reply_text(text_out, parse_mode="HTML")
+            
+            # Store results in user_data for pagination
+            context.user_data["search_results"] = results
+            
+            # Send first page
+            msg = await update.message.reply_text("🔍 Searching...")
+            await show_search_page(msg, context, results, page=1, edit=False)
             return
 
     # =============================================
