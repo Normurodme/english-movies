@@ -622,7 +622,7 @@ async def vipdownload(update:Update,context:ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("🔐 VIP upload panel:",reply_markup=kb)
 
 # =========================================
-# CALLBACK
+# CALLBACK - FIXED VERSION
 # =========================================
 
 async def callbacks(update:Update,context:ContextTypes.DEFAULT_TYPE):
@@ -634,12 +634,9 @@ async def callbacks(update:Update,context:ContextTypes.DEFAULT_TYPE):
 
     # BUY VIP
     if q.data.startswith("buy_"):
-
         plan=q.data.split("_")[1]
         stars,days=VIP_PLANS[plan]
-
         prices=[LabeledPrice(label="VIP", amount=stars)]
-
         await context.bot.send_invoice(
             chat_id=q.from_user.id,
             title="VIP Subscription",
@@ -651,63 +648,83 @@ async def callbacks(update:Update,context:ContextTypes.DEFAULT_TYPE):
         )
         return
 
-    # SEARCH RESULTS CALLBACK (raqamli knopkalar)
-    if q.data.startswith("search_result_"):
-        parts = q.data.split("_")
-        # search_result_page_number
-        # search_result_1 (selection)
-        # search_result_page_2_next
-        # search_result_page_2_prev
+    # =========================================
+    # SEARCH RESULTS HANDLING (FIXED)
+    # =========================================
+    
+    # Search result selection: search_sel_7 or search_sel_95.1
+    if q.data.startswith("search_sel_"):
+        # Extract the selection (could be index number like 7 or code like 95.1)
+        selection = q.data.replace("search_sel_", "")
         
-        if len(parts) == 3 and parts[2].isdigit():
-            # search_result_{page}_{index} format
-            page = int(parts[1])
-            index = int(parts[2])
-            # Get stored results
-            search_results = context.user_data.get("search_results", [])
-            if search_results and index > 0 and index <= len(search_results):
-                code, title = search_results[index - 1]
-                # Send the movie
-                uid = update.effective_user.id
-                msg_id = DB.get("movies", {}).get(code)
-                if msg_id:
-                    vip_list = set(str(x) for x in DB.get("vip_only", []))
-                    if code in vip_list and not is_vip(uid):
-                        await q.message.reply_text(TXT_VIP_ONLY)
-                        return
-                    now = time.time()
-                    STATS.setdefault("codes", []).append((code, now))
-                    STATS.setdefault("requests", []).append(now)
-                    STATS.setdefault("users", []).append((uid, now))
-                    mark_stats_dirty()
-                    await SEND_QUEUE.put((context, uid, msg_id, is_vip(uid), title))
-                else:
-                    await q.message.reply_text("❌ Movie not found")
-                # Delete the search results message
+        search_results = context.user_data.get("search_results", [])
+        
+        # Try to find the movie
+        movie_code = None
+        movie_title = None
+        
+        # If selection is a number (1-10) - find by index
+        if selection.isdigit():
+            idx = int(selection) - 1
+            if 0 <= idx < len(search_results):
+                movie_code, movie_title = search_results[idx]
+        
+        # If selection is a code (like 95.1) - find by code
+        if not movie_code:
+            for code, title in search_results:
+                if code == selection:
+                    movie_code, movie_title = code, title
+                    break
+        
+        if movie_code:
+            uid = q.from_user.id
+            msg_id = DB.get("movies", {}).get(movie_code)
+            if msg_id:
+                vip_list = set(str(x) for x in DB.get("vip_only", []))
+                if movie_code in vip_list and not is_vip(uid):
+                    await q.message.reply_text(TXT_VIP_ONLY)
+                    await q.message.delete()
+                    return
+                now = time.time()
+                STATS.setdefault("codes", []).append((movie_code, now))
+                STATS.setdefault("requests", []).append(now)
+                STATS.setdefault("users", []).append((uid, now))
+                mark_stats_dirty()
+                await SEND_QUEUE.put((context, uid, msg_id, is_vip(uid), movie_title))
                 await q.message.delete()
-            return
-        
-        elif len(parts) >= 3 and parts[2] in ["next", "prev"]:
-            # search_result_{page}_next or search_result_{page}_prev
-            current_page = int(parts[1])
-            if parts[2] == "next":
-                new_page = current_page + 1
             else:
-                new_page = current_page - 1
-            
-            search_results = context.user_data.get("search_results", [])
-            if search_results:
-                await show_search_page(q.message, context, search_results, new_page)
-            return
-        
-        elif len(parts) == 2 and parts[1].isdigit():
-            # search_result_{page} - initial page navigation
-            page = int(parts[1])
+                await q.message.reply_text("❌ Movie not found")
+        else:
+            await q.message.reply_text("❌ Invalid selection")
+        return
+    
+    # Search pagination: search_page_2 or search_page_1_next
+    if q.data.startswith("search_page_"):
+        parts = q.data.split("_")
+        # Format: search_page_{page} or search_page_{page}_next or search_page_{page}_prev
+        if len(parts) >= 3:
+            page = int(parts[2])
+            if len(parts) == 4:
+                if parts[3] == "next":
+                    page += 1
+                elif parts[3] == "prev":
+                    page -= 1
             search_results = context.user_data.get("search_results", [])
             if search_results:
                 await show_search_page(q.message, context, search_results, page)
-            return
+        return
+    
+    # Search back to menu
+    if q.data == "search_back":
+        search_results = context.user_data.get("search_results", [])
+        if search_results:
+            context.user_data.pop("search_results", None)
+            await q.message.edit_text("🔙 Returned to main menu")
+            # Send main menu
+            await q.message.reply_text(TXT_START, parse_mode="HTML", reply_markup=USER_MENU)
+        return
 
+    # CHECK CHANNEL
     if q.data=="check":
         try:
             m = await context.bot.get_chat_member(REQUIRED_CHANNEL, q.from_user.id)
@@ -718,21 +735,21 @@ async def callbacks(update:Update,context:ContextTypes.DEFAULT_TYPE):
         SUB_CACHE.pop(q.from_user.id, None)
 
         if is_member:
-
-            # CONFIRM REFERRAL ONLY AFTER CHANNEL JOIN
             referrer = context.user_data.get("pending_ref")
             if referrer and str(q.from_user.id) not in USED_REF and referrer != q.from_user.id:
                 add_referral(referrer, q.from_user.id)
                 context.user_data.pop("pending_ref", None)
-
             await q.message.edit_text("✅ Confirmed")
         else:
             await q.answer("Join channel",show_alert=True)
+        return
 
+    # UPLOAD HANDLERS
     if q.data=="movie":
         context.user_data["upload"]="movie"
         context.user_data["vip"]=False
         await q.message.edit_text("🎬 Send movie")
+        return
 
     if q.data=="serial":
         SERIAL_MODE=True
@@ -741,11 +758,13 @@ async def callbacks(update:Update,context:ContextTypes.DEFAULT_TYPE):
         context.user_data["upload"]="serial"
         context.user_data["vip"]=False
         await q.message.edit_text("📺 Send series\n/done finishes")
+        return
 
     if q.data=="vipmovie":
         context.user_data["upload"]="movie"
         context.user_data["vip"]=True
         await q.message.edit_text("🔒 Send VIP movie")
+        return
 
     if q.data=="vipserial":
         SERIAL_MODE=True
@@ -754,9 +773,10 @@ async def callbacks(update:Update,context:ContextTypes.DEFAULT_TYPE):
         context.user_data["upload"]="serial"
         context.user_data["vip"]=True
         await q.message.edit_text("🔒 Send VIP series")
+        return
 
 # =========================================
-# SEARCH PAGE DISPLAY FUNCTION
+# SEARCH PAGE DISPLAY FUNCTION (FIXED)
 # =========================================
 async def show_search_page(message, context, results, page=1, edit=True):
     """Display search results with pagination"""
@@ -780,8 +800,9 @@ async def show_search_page(message, context, results, page=1, edit=True):
     keyboard = []
     row = []
     for i, (code, title) in enumerate(page_results, start=start + 1):
-        row.append(InlineKeyboardButton(str(i), callback_data=f"search_result_{page}_{i}"))
-        if len(row) == 5:  # 5 buttons per row
+        # Use search_sel_ with index number for simplicity
+        row.append(InlineKeyboardButton(str(i), callback_data=f"search_sel_{i}"))
+        if len(row) == 5:
             keyboard.append(row)
             row = []
     if row:
@@ -790,9 +811,9 @@ async def show_search_page(message, context, results, page=1, edit=True):
     # Navigation buttons
     nav_row = []
     if page > 1:
-        nav_row.append(InlineKeyboardButton("⬅️ Oldingi", callback_data=f"search_result_{page}_prev"))
+        nav_row.append(InlineKeyboardButton("⬅️ Oldingi", callback_data=f"search_page_{page}_prev"))
     if page < total_pages:
-        nav_row.append(InlineKeyboardButton("Keyingi ➡️", callback_data=f"search_result_{page}_next"))
+        nav_row.append(InlineKeyboardButton("Keyingi ➡️", callback_data=f"search_page_{page}_next"))
     if nav_row:
         keyboard.append(nav_row)
     
@@ -802,9 +823,13 @@ async def show_search_page(message, context, results, page=1, edit=True):
     reply_markup = InlineKeyboardMarkup(keyboard)
     
     if edit:
-        await message.edit_text(text, parse_mode="HTML", reply_markup=reply_markup)
+        try:
+            await message.edit_text(text, parse_mode="HTML", reply_markup=reply_markup)
+        except:
+            await message.reply_text(text, parse_mode="HTML", reply_markup=reply_markup)
     else:
         await message.reply_text(text, parse_mode="HTML", reply_markup=reply_markup)
+
 
 # =========================================
 # DONE SERIAL
