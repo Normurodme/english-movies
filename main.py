@@ -813,7 +813,7 @@ async def stats(update:Update,context:ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(txt,parse_mode="HTML")
 
 # =========================================
-# MESSAGE HANDLER (FIXED)
+# MESSAGE HANDLER (FIXED SEARCH MODE)
 # =========================================
 
 async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
@@ -1034,6 +1034,8 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
     
     # Search 🔍
     if text and text.startswith("Search"):
+        # Clear both search and msg modes
+        context.user_data.pop("search_mode", None)
         context.user_data.pop("msg_mode", None)
         kb = ReplyKeyboardMarkup(
             [
@@ -1046,84 +1048,61 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
         return
 
     if text == "By Name":
+        # Switch to name search, clear msg_mode
         context.user_data.pop("msg_mode", None)
         context.user_data["search_mode"] = "name"
         await update.message.reply_text("Send movie name")
         return
 
     if text == "By Code":
+        # Switch to code search, clear msg_mode
         context.user_data.pop("msg_mode", None)
         context.user_data["search_mode"] = "code"
         await update.message.reply_text("Send movie code")
         return
 
     if text == "Back":
-        context.user_data.pop("msg_mode", None)
+        # Exit search mode and return to main menu
         context.user_data.pop("search_mode", None)
+        context.user_data.pop("msg_mode", None)
         await update.message.reply_text(TXT_START, parse_mode="HTML", reply_markup=USER_MENU)
         return
 
     # Top 🔝
     if text and text.startswith("Top"):
+        context.user_data.pop("search_mode", None)
         context.user_data.pop("msg_mode", None)
         await top_cmd(update, context)
         return
 
     # Vip 🔐
     if text and text.startswith("Vip"):
+        context.user_data.pop("search_mode", None)
         context.user_data.pop("msg_mode", None)
         await vip(update, context)
         return
 
     # Referral
     if text and text.startswith("Referral"):
+        context.user_data.pop("search_mode", None)
         context.user_data.pop("msg_mode", None)
         await referral(update, context)
         return
 
     # 🎬 Request Movie
     if text and "Request Movie" in text:
+        context.user_data.pop("search_mode", None)
         context.user_data.pop("msg_mode", None)
         context.user_data["msg_mode"] = "awaiting_message"
         await update.message.reply_text("You can request movie 📽")
         return
 
     # =============================================
-    # MESSAGE FLOW - FAQAT XABAR UCHUN
+    # SEARCH MODE (name or code) - KEEP MODE AFTER USE
     # =============================================
-    if context.user_data.get("msg_mode") == "awaiting_message":
-        try:
-            txt = update.message.text or ""
-            await context.bot.send_message(
-                MESSAGE_CHANNEL,
-                f"📩 Message from {uid}:\n{txt}"
-            )
-            await update.message.reply_text("✅ Sent to admin")
-        except:
-            await update.message.reply_text("❌ Failed")
-        
-        context.user_data.pop("msg_mode", None)
-        return
-
-    # ------------------------
-    # ADMIN REPLY TO USER (faqat admin uchun)
-    # ------------------------
-    if uid == ADMIN_ID and context.user_data.get("msg_mode") == "admin":
-        target = context.user_data.get("msg_target")
-        try:
-            await update.message.copy(target)
-            await update.message.reply_text("✅ Sent")
-        except:
-            await update.message.reply_text("❌ Failed to send")
-        context.user_data.clear()
-        return
-
-    # ------------------------
-    # SEARCH MODE
-    # ------------------------
     if context.user_data.get("search_mode"):
-        mode = context.user_data.get("search_mode")
-        context.user_data.pop("search_mode", None)
+        mode = context.user_data.get("search_mode")  # "name" or "code"
+        # Do NOT pop! Stay in search mode for next query.
         catalog = DB.get("catalog", {})
 
         if mode == "code":
@@ -1151,18 +1130,48 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
         if mode == "name":
             keyword = text.lower()
             results = []
-            for code_val,data in catalog.items():
-                title = data.get("title","")
+            for code_val, data in catalog.items():
+                title = data.get("title", "")
                 if keyword in title.lower():
-                    results.append((code_val,title))
+                    results.append((code_val, title))
             if not results:
                 await update.message.reply_text("❌ No results found")
                 return
-            text_out="🔎 <b>Results :</b>\n\n"
-            for i,(c,title) in enumerate(results,1):
-                text_out+=f"{i}. {title} - <b>{c}</b>\n\n"
-            await update.message.reply_text(text_out,parse_mode="HTML")
+            text_out = "🔎 <b>Results :</b>\n\n"
+            for i, (c, title) in enumerate(results, 1):
+                text_out += f"{i}. {title} - <b>{c}</b>\n\n"
+            await update.message.reply_text(text_out, parse_mode="HTML")
             return
+
+    # =============================================
+    # MESSAGE FLOW - FAQAT XABAR UCHUN (awaiting_message)
+    # =============================================
+    if context.user_data.get("msg_mode") == "awaiting_message":
+        try:
+            txt = update.message.text or ""
+            await context.bot.send_message(
+                MESSAGE_CHANNEL,
+                f"📩 Message from {uid}:\n{txt}"
+            )
+            await update.message.reply_text("✅ Sent to admin")
+        except:
+            await update.message.reply_text("❌ Failed")
+        
+        context.user_data.pop("msg_mode", None)
+        return
+
+    # ------------------------
+    # ADMIN REPLY TO USER (faqat admin uchun)
+    # ------------------------
+    if uid == ADMIN_ID and context.user_data.get("msg_mode") == "admin":
+        target = context.user_data.get("msg_target")
+        try:
+            await update.message.copy(target)
+            await update.message.reply_text("✅ Sent")
+        except:
+            await update.message.reply_text("❌ Failed to send")
+        context.user_data.clear()
+        return
 
     # ------------------------
     # ODDATDAGI KINO KODI (nuqtali kodlarni ham qabul qiladi)
@@ -1445,7 +1454,8 @@ async def titles(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # =========================================
 
 async def search(update:Update, context:ContextTypes.DEFAULT_TYPE):
-    context.user_data["search_mode"] = True
+    # Fix: set search_mode to "name" instead of True
+    context.user_data["search_mode"] = "name"
     await update.message.reply_text("Send a movie name")
 
 
