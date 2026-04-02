@@ -940,16 +940,16 @@ async def stats(update:Update,context:ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(txt,parse_mode="HTML")
 
 # =========================================
-# INFO COMMAND
+# INFO COMMAND (FIXED)
 # =========================================
 
-    async def info(update:Update, context:ContextTypes.DEFAULT_TYPE):
-        """Info buyrug'i - bot haqida ma'lumot"""
-        text = (
-            "🎥 <b>Most Movies for Free</b>\n"
-            "🔋 <b>You can earn VIP</b>\n\n"
-            "🧑‍💻 @Besupport - For Collaboration\n"
-            "🛒 @Premopay - Purchase Stars and Premium"
+async def info(update:Update, context:ContextTypes.DEFAULT_TYPE):
+    """Info buyrug'i - bot haqida ma'lumot"""
+    text = (
+        "🎥 <b>Most Movies for Free</b>\n"
+        "🔋 <b>You can earn VIP</b>\n\n"
+        "🧑‍💻 @Besupport - For Collaboration\n"
+        "🛒 @Premopay - Purchase Stars and Premium"
     )
     await update.message.reply_text(text, parse_mode="HTML")
 
