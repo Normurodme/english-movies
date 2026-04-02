@@ -1179,7 +1179,7 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
         await vip(update, context)
         return
 
-    # Referral (YANGILANGAN MATN)
+    # Referral (YANGILANGAN MATN - <code> O'CHIRILDI)
     if text and text.startswith("Referral"):
         context.user_data.pop("search_mode", None)
         context.user_data.pop("search_results", None)
@@ -1198,7 +1198,7 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
             "🔓 VIP movies\n"
             "⏳ Longer watch time\n\n"
             f"🔗 <b>Your personal link:</b>\n"
-            f"<code>{link}</code>\n\n"
+            f"{link}\n\n"
             f"👥 <b>Invited: {count}</b>"
         )
         await update.message.reply_text(text, parse_mode="HTML", reply_markup=USER_MENU)
@@ -1598,7 +1598,7 @@ async def referral_command(update:Update, context:ContextTypes.DEFAULT_TYPE):
         "🔓 VIP movies\n"
         "⏳ Longer watch time\n\n"
         f"🔗 <b>Your personal link:</b>\n"
-        f"<code>{link}</code>\n\n"
+        f"{link}\n\n"
         f"👥 <b>Invited: {count}</b>"
     )
     await update.message.reply_text(text, parse_mode="HTML", reply_markup=USER_MENU)
