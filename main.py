@@ -74,7 +74,7 @@ WARNING = (
 )
 
 # =========================================
-# USER MENU KEYBOARD (YANGI TARTIB)
+# USER MENU KEYBOARD
 # =========================================
 USER_MENU = ReplyKeyboardMarkup(
     [
@@ -948,8 +948,8 @@ async def info(update:Update, context:ContextTypes.DEFAULT_TYPE):
     text = (
         "🎥 <b>Most Movies for Free</b>\n"
         "🔋 <b>You can earn VIP</b>\n\n"
-        "🧑‍💻 For collaboration and ideas - @besupport\n\n"
-        "🛒 Purchase Stars and Premium - @premopay"
+        "🧑‍💻 @Besupport - For Collaboration"
+        "🛒 @Premopay" - Purchase Stars and Premium"
     )
     await update.message.reply_text(text, parse_mode="HTML")
 
@@ -1179,7 +1179,7 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
         await vip(update, context)
         return
 
-    # Referral
+    # Referral (YANGILANGAN MATN)
     if text and text.startswith("Referral"):
         context.user_data.pop("search_mode", None)
         context.user_data.pop("search_results", None)
@@ -1193,15 +1193,15 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
             "🎁 <b>Invite your friends and unlock rewards:</b>\n\n"
             "👥 5 friends → 🎬 1 day VIP\n"
             "🔥 10 friends → 🔥 3 days VIP\n\n"
-            "<b>✨ VIP benefits:</b>\n"
-            "• No ads 🚫\n"
-            "• VIP movies 🔓\n"
-            "• Longer watch time ⏳\n\n"
+            "✨ <b>VIP benefits:</b>\n"
+            "🚫 No ads\n"
+            "🔓 VIP movies\n"
+            "⏳ Longer watch time\n\n"
             f"🔗 <b>Your personal link:</b>\n"
             f"<code>{link}</code>\n\n"
             f"👥 <b>Invited: {count}</b>"
         )
-        await update.message.reply_text(text, parse_mode="HTML")
+        await update.message.reply_text(text, parse_mode="HTML", reply_markup=USER_MENU)
         return
 
     # 🎬 Request Movie
@@ -1593,15 +1593,15 @@ async def referral_command(update:Update, context:ContextTypes.DEFAULT_TYPE):
         "🎁 <b>Invite your friends and unlock rewards:</b>\n\n"
         "👥 5 friends → 🎬 1 day VIP\n"
         "🔥 10 friends → 🔥 3 days VIP\n\n"
-        "<b>✨ VIP benefits:</b>\n"
-        "• No ads 🚫\n"
-        "• VIP movies 🔓\n"
-        "• Longer watch time ⏳\n\n"
+        "✨ <b>VIP benefits:</b>\n"
+        "🚫 No ads\n"
+        "🔓 VIP movies\n"
+        "⏳ Longer watch time\n\n"
         f"🔗 <b>Your personal link:</b>\n"
         f"<code>{link}</code>\n\n"
         f"👥 <b>Invited: {count}</b>"
     )
-    await update.message.reply_text(text, parse_mode="HTML")
+    await update.message.reply_text(text, parse_mode="HTML", reply_markup=USER_MENU)
 
 # =========================================
 # ADMIN VIP USER MANAGEMENT
