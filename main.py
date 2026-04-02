@@ -74,13 +74,13 @@ WARNING = (
 )
 
 # =========================================
-# USER MENU KEYBOARD
+# USER MENU KEYBOARD (YANGI TARTIB)
 # =========================================
 USER_MENU = ReplyKeyboardMarkup(
     [
         ["Search 🔍", "Top 🔝"],
         ["Vip 🔐", "🎬 Request Movie"],
-        ["Referral"]
+        ["Referral", "Info ℹ️"]
     ],
     resize_keyboard=True
 )
@@ -940,6 +940,20 @@ async def stats(update:Update,context:ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(txt,parse_mode="HTML")
 
 # =========================================
+# INFO COMMAND
+# =========================================
+
+async def info(update:Update, context:ContextTypes.DEFAULT_TYPE):
+    """Info buyrug'i - bot haqida ma'lumot"""
+    text = (
+        "🎥 <b>Most Movies for Free</b>\n"
+        "🔋 <b>You can earn VIP</b>\n\n"
+        "🧑‍💻 For collaboration and ideas - @besupport\n\n"
+        "🛒 Purchase Stars and Premium - @premopay"
+    )
+    await update.message.reply_text(text, parse_mode="HTML")
+
+# =========================================
 # MESSAGE HANDLER (FIXED - MULTIPLE SEARCHES)
 # =========================================
 
@@ -1105,6 +1119,14 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
     # MENU BUTTONLAR (bular adminga xabar sifatida bormaydi)
     # =============================================
     
+    # Info ℹ️ (birinchi tekshiriladi, hech qachon kino nomi yoki xabar bo'lmaydi)
+    if text and text.startswith("Info"):
+        context.user_data.pop("search_mode", None)
+        context.user_data.pop("search_results", None)
+        context.user_data.pop("msg_mode", None)
+        await info(update, context)
+        return
+    
     # Search 🔍
     if text and text.startswith("Search"):
         context.user_data.pop("msg_mode", None)
@@ -1162,7 +1184,24 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
         context.user_data.pop("search_mode", None)
         context.user_data.pop("search_results", None)
         context.user_data.pop("msg_mode", None)
-        await referral(update, context)
+        # Yangilangan referral matni
+        uid = update.effective_user.id
+        link = f"https://t.me/englishmovietimebot?start={uid}"
+        count = REFERRALS.get(str(uid), 0)
+        
+        text = (
+            "🎁 <b>Invite your friends and unlock rewards:</b>\n\n"
+            "👥 5 friends → 🎬 1 day VIP\n"
+            "🔥 10 friends → 🔥 3 days VIP\n\n"
+            "<b>✨ VIP benefits:</b>\n"
+            "• No ads 🚫\n"
+            "• VIP movies 🔓\n"
+            "• Longer watch time ⏳\n\n"
+            f"🔗 <b>Your personal link:</b>\n"
+            f"<code>{link}</code>\n\n"
+            f"👥 <b>Invited: {count}</b>"
+        )
+        await update.message.reply_text(text, parse_mode="HTML")
         return
 
     # 🎬 Request Movie
@@ -1542,24 +1581,27 @@ async def search(update:Update, context:ContextTypes.DEFAULT_TYPE):
 
 
 # =========================================
-# REFERRAL COMMAND
+# REFERRAL COMMAND - YANGI VERSIYA (buyruq orqali)
 # =========================================
 
-async def referral(update:Update, context:ContextTypes.DEFAULT_TYPE):
+async def referral_command(update:Update, context:ContextTypes.DEFAULT_TYPE):
     uid = update.effective_user.id
     link = f"https://t.me/englishmovietimebot?start={uid}"
     count = REFERRALS.get(str(uid), 0)
 
     text = (
-        "You can get:\n"
-        "1 day VIP by inviting 5 friends\n"
-        "3 days VIP with 10 friends\n\n"
-        f"{link}\n\n"
-        f"👥 Your referrals: {count}"
+        "🎁 <b>Invite your friends and unlock rewards:</b>\n\n"
+        "👥 5 friends → 🎬 1 day VIP\n"
+        "🔥 10 friends → 🔥 3 days VIP\n\n"
+        "<b>✨ VIP benefits:</b>\n"
+        "• No ads 🚫\n"
+        "• VIP movies 🔓\n"
+        "• Longer watch time ⏳\n\n"
+        f"🔗 <b>Your personal link:</b>\n"
+        f"<code>{link}</code>\n\n"
+        f"👥 <b>Invited: {count}</b>"
     )
-
-    await update.message.reply_text(text)
-
+    await update.message.reply_text(text, parse_mode="HTML")
 
 # =========================================
 # ADMIN VIP USER MANAGEMENT
@@ -1730,13 +1772,14 @@ def main():
     app.add_handler(CommandHandler("top",top_cmd))
     app.add_handler(CommandHandler("addtitle",addtitle))
     app.add_handler(CommandHandler("search",search))
-    app.add_handler(CommandHandler("referral",referral))
+    app.add_handler(CommandHandler("referral",referral_command))
     app.add_handler(CommandHandler("addvips",addvips))
     app.add_handler(CommandHandler("removevips",removevips))
     app.add_handler(CommandHandler("edittitle",edittitle))
     app.add_handler(CommandHandler("titles", titles))
     app.add_handler(CommandHandler("getdb", getdb))
     app.add_handler(CommandHandler("loaddb", loaddb))
+    app.add_handler(CommandHandler("info", info))
 
     app.add_handler(PreCheckoutQueryHandler(precheckout))
     app.add_handler(MessageHandler(filters.SUCCESSFUL_PAYMENT,successful_payment))
