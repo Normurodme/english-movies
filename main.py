@@ -735,7 +735,7 @@ async def callbacks(update:Update,context:ContextTypes.DEFAULT_TYPE):
             if referrer and str(q.from_user.id) not in USED_REF and referrer != q.from_user.id:
                 add_referral(referrer, q.from_user.id)
                 context.user_data.pop("pending_ref", None)
-            await q.message.edit_text("✅ Confirmed")
+            await q.message.edit_text("✅  /start and begin journey")
         else:
             await q.answer("Join channel",show_alert=True)
         return
@@ -949,7 +949,7 @@ async def info(update:Update, context:ContextTypes.DEFAULT_TYPE):
         "🎥 <b>Most Movies for Free</b>\n"
         "🔋 <b>You can earn VIP</b>\n\n"
         "🧑‍💻 @Besupport - For Collaboration\n"
-        "🛒 @Premopay - Purchase Stars and Premium"
+        "🛒 @Premopay - Purchase Stars"
     )
     await update.message.reply_text(text, parse_mode="HTML")
 
