@@ -716,8 +716,17 @@ async def callbacks(update:Update,context:ContextTypes.DEFAULT_TYPE):
         search_results = context.user_data.get("search_results", [])
         if search_results:
             context.user_data.pop("search_results", None)
+            context.user_data.pop("search_mode", None)  # Qidiruv rejimini tozalash
             await q.message.edit_text("🔙 Returned to main menu")
             await q.message.reply_text(TXT_START, parse_mode="HTML", reply_markup=USER_MENU)
+        return
+
+    # Top week/month callbacks
+    if q.data == "top_week" or q.data == "top_month":
+        # Top ni ko'rsatganda qidiruv rejimini tozalash
+        context.user_data.pop("search_mode", None)
+        context.user_data.pop("search_results", None)
+        await top_callback(update, context)
         return
 
     # CHECK CHANNEL
@@ -979,7 +988,6 @@ async def perform_search(query, catalog, db_movies):
         # 2. NOMIDA raqam qatnashgan kinolar
         for code, data in catalog.items():
             title = data.get("title", "")
-            # Raqam nomda qatnashganmi? (masalan: "300 Spartaliklar" yoki "Avatar: The Way of Water" da raqam yo'q)
             if query in title:
                 if (code, title) not in results:
                     results.append((code, title))
@@ -990,10 +998,12 @@ async def perform_search(query, catalog, db_movies):
             if query_lower in title.lower():
                 results.append((code, title))
     
+    # Natijalarni tartiblash (kod bo'yicha)
+    results.sort(key=lambda x: x[0])
     return results
 
 # =========================================
-# MESSAGE HANDLER (YANGI SEARCH TIZIMI)
+# MESSAGE HANDLER (YANGI QIDIRUV TIZIMI)
 # =========================================
 
 async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
@@ -1017,6 +1027,75 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
     text = update.message.text if update.message.text else None
     if text:
         text = text.strip()
+
+    # =============================================
+    # MENU KOMANDALARI (Bular qidiruv rejimini tozalaydi)
+    # =============================================
+    
+    # Info ℹ️
+    if text and text.startswith("Info"):
+        context.user_data.pop("search_mode", None)
+        context.user_data.pop("search_results", None)
+        context.user_data.pop("msg_mode", None)
+        await info(update, context)
+        return
+    
+    # Search 🔍 - QIDIRUV REJIMINI YOQADI
+    if text and text.startswith("Search"):
+        context.user_data.pop("msg_mode", None)
+        context.user_data.pop("search_results", None)
+        context.user_data["search_mode"] = "searching"
+        await update.message.reply_text("Send movie name or code")
+        return
+
+    # Top 🔝
+    if text and text.startswith("Top"):
+        context.user_data.pop("search_mode", None)
+        context.user_data.pop("search_results", None)
+        context.user_data.pop("msg_mode", None)
+        await top_cmd(update, context)
+        return
+
+    # Vip 🔐
+    if text and text.startswith("Vip"):
+        context.user_data.pop("search_mode", None)
+        context.user_data.pop("search_results", None)
+        context.user_data.pop("msg_mode", None)
+        await vip(update, context)
+        return
+
+    # Referral
+    if text and text.startswith("Referral"):
+        context.user_data.pop("search_mode", None)
+        context.user_data.pop("search_results", None)
+        context.user_data.pop("msg_mode", None)
+        uid = update.effective_user.id
+        link = f"https://t.me/englishmovietimebot?start={uid}"
+        count = REFERRALS.get(str(uid), 0)
+        
+        text = (
+            "🎁 <b>Invite your friends and unlock rewards:</b>\n\n"
+            "👥 5 friends → 🎬 1 day VIP\n"
+            "🔥 10 friends → 🔥 3 days VIP\n\n"
+            "✨ <b>VIP benefits:</b>\n"
+            "🚫 No ads\n"
+            "🔓 VIP movies\n"
+            "⏳ Longer watch time\n\n"
+            f"🔗 <b>Your personal link:</b>\n"
+            f"{link}\n\n"
+            f"👥 <b>Invited: {count}</b>"
+        )
+        await update.message.reply_text(text, parse_mode="HTML", reply_markup=USER_MENU)
+        return
+
+    # 🎬 Request Movie
+    if text and "Request Movie" in text:
+        context.user_data.pop("search_mode", None)
+        context.user_data.pop("search_results", None)
+        context.user_data.pop("msg_mode", None)
+        context.user_data["msg_mode"] = "awaiting_message"
+        await update.message.reply_text("You can request movie 📽")
+        return
 
     # =============================================
     # ADDTITLE MODE - HANDLE /stop AND OTHER COMMANDS
@@ -1155,86 +1234,14 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
     if not text: return
 
     # =============================================
-    # MENU BUTTONLAR (bular adminga xabar sifatida bormaydi)
-    # =============================================
-    
-    # Info ℹ️ (birinchi tekshiriladi, hech qachon kino nomi yoki xabar bo'lmaydi)
-    if text and text.startswith("Info"):
-        context.user_data.pop("search_mode", None)
-        context.user_data.pop("search_results", None)
-        context.user_data.pop("msg_mode", None)
-        await info(update, context)
-        return
-    
-    # Search 🔍 - YANGI: To'g'ridan-to'g'ri qidiruvga o'tadi
-    if text and text.startswith("Search"):
-        context.user_data.pop("msg_mode", None)
-        context.user_data.pop("search_results", None)
-        # Qidiruv rejimiga o'tish
-        context.user_data["search_mode"] = "searching"
-        await update.message.reply_text("Send movie name or code")
-        return
-
-    # Top 🔝
-    if text and text.startswith("Top"):
-        context.user_data.pop("search_mode", None)
-        context.user_data.pop("search_results", None)
-        context.user_data.pop("msg_mode", None)
-        await top_cmd(update, context)
-        return
-
-    # Vip 🔐
-    if text and text.startswith("Vip"):
-        context.user_data.pop("search_mode", None)
-        context.user_data.pop("search_results", None)
-        context.user_data.pop("msg_mode", None)
-        await vip(update, context)
-        return
-
-    # Referral
-    if text and text.startswith("Referral"):
-        context.user_data.pop("search_mode", None)
-        context.user_data.pop("search_results", None)
-        context.user_data.pop("msg_mode", None)
-        uid = update.effective_user.id
-        link = f"https://t.me/englishmovietimebot?start={uid}"
-        count = REFERRALS.get(str(uid), 0)
-        
-        text = (
-            "🎁 <b>Invite your friends and unlock rewards:</b>\n\n"
-            "👥 5 friends → 🎬 1 day VIP\n"
-            "🔥 10 friends → 🔥 3 days VIP\n\n"
-            "✨ <b>VIP benefits:</b>\n"
-            "🚫 No ads\n"
-            "🔓 VIP movies\n"
-            "⏳ Longer watch time\n\n"
-            f"🔗 <b>Your personal link:</b>\n"
-            f"{link}\n\n"
-            f"👥 <b>Invited: {count}</b>"
-        )
-        await update.message.reply_text(text, parse_mode="HTML", reply_markup=USER_MENU)
-        return
-
-    # 🎬 Request Movie
-    if text and "Request Movie" in text:
-        context.user_data.pop("search_mode", None)
-        context.user_data.pop("search_results", None)
-        context.user_data.pop("msg_mode", None)
-        context.user_data["msg_mode"] = "awaiting_message"
-        await update.message.reply_text("You can request movie 📽")
-        return
-
-    # =============================================
-    # SEARCH MODE - YANGI BIRLASHGAN QIDIRUV
+    # QIDIRUV REJIMI (search_mode == "searching")
     # =============================================
     if context.user_data.get("search_mode") == "searching":
-        # Qidiruv rejimidan chiqish (bir marta ishlatgandan keyin)
-        context.user_data.pop("search_mode", None)
-        
+        # Qidiruv rejimini o'chirmaymiz - qayta qidirish uchun saqlaymiz
         catalog = DB.get("catalog", {})
         db_movies = DB.get("movies", {})
         
-        # Yangi birlashgan qidiruv funksiyasi
+        # Qidiruvni bajarish
         results = await perform_search(text, catalog, db_movies)
         
         if not results:
@@ -1247,51 +1254,64 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
         # Birinchi sahifani ko'rsatish
         msg = await update.message.reply_text("🔍 Searching...")
         await show_search_page(msg, context, results, page=1, edit=False)
+        # Qidiruv rejimini SAQLAB QOLAMIZ (pop qilmaymiz)
         return
 
     # =============================================
-    # OLDINGI SEARCH MODE (FAQAT CODE UCHUN - USER TO'G'RIDAN-TO'G'RI KOD YOZSA)
-    # Agar user SEARCH tugmasini bosmay, to'g'ridan-to'g'ri kod yozsa
+    # ODDIY KINO KODI (agar qidiruv rejimi yo'q bo'lsa)
     # =============================================
     
-    # ODDATDAGI KINO KODI (nuqtali kodlarni ham qabul qiladi)
-    now=time.time()
-    vip_user=is_vip(uid)
-    delay = 5 if vip_user else 5
-    daily_limit = 30 if vip_user else 30
-
-    if uid in LAST_REQ and now-LAST_REQ[uid]<delay:
-        await update.message.reply_text(TXT_WAIT)
-        return
-
-    LAST_REQ[uid]=now
-
-    logs=USER_REQS.get(uid,[])
-    logs=[t for t in logs if now-t<86400]
-    if len(logs)>=daily_limit:
-        await update.message.reply_text("❌ Daily request limit reached")
-        return
-
-    logs.append(now)
-    USER_REQS[uid]=logs
-
-    msg_id=DB["movies"].get(text)
-    if not msg_id:
-        await update.message.reply_text(TXT_NOT_FOUND)
-        return
-
-    vip_list = set(str(x) for x in DB.get("vip_only",[]))
-    if text in vip_list and not is_vip(uid):
-        await update.message.reply_text(TXT_VIP_ONLY)
-        return
-
-    STATS["requests"].append(now)
-    STATS.setdefault("codes",[]).append((text,now))
-    STATS["users"].append((uid,now))
-    mark_stats_dirty()
-
-    title = DB.get("catalog", {}).get(text, {}).get("title", "Unknown")
-    await SEND_QUEUE.put((context, uid, msg_id, is_vip(uid), title))
+    # Raqam yoki nuqtali kod formatini tekshirish
+    is_code_format = re.match(r'^\d+(\.\d+)?$', text)
+    
+    if is_code_format:
+        # KOD bo'yicha qidiruv
+        msg_id = DB["movies"].get(text)
+        if msg_id:
+            vip_list = set(str(x) for x in DB.get("vip_only",[]))
+            if text in vip_list and not is_vip(uid):
+                await update.message.reply_text(TXT_VIP_ONLY)
+                return
+            
+            now = time.time()
+            STATS["requests"].append(now)
+            STATS.setdefault("codes",[]).append((text,now))
+            STATS["users"].append((uid,now))
+            mark_stats_dirty()
+            
+            title = DB.get("catalog", {}).get(text, {}).get("title", "Unknown")
+            await SEND_QUEUE.put((context, uid, msg_id, is_vip(uid), title))
+            return
+        else:
+            # Kod topilmadi, lekin matn qidiruvini o'tkazamiz
+            catalog = DB.get("catalog", {})
+            db_movies = DB.get("movies", {})
+            results = await perform_search(text, catalog, db_movies)
+            
+            if results:
+                context.user_data["search_results"] = results
+                msg = await update.message.reply_text("🔍 Searching...")
+                await show_search_page(msg, context, results, page=1, edit=False)
+                return
+            else:
+                await update.message.reply_text(TXT_NOT_FOUND)
+                return
+    else:
+        # MATN bo'yicha qidiruv (Way, Grey, True kabi)
+        catalog = DB.get("catalog", {})
+        db_movies = DB.get("movies", {})
+        results = await perform_search(text, catalog, db_movies)
+        
+        if results:
+            # Qidiruv rejimini yoqamiz (keyingi qidiruvlar uchun)
+            context.user_data["search_mode"] = "searching"
+            context.user_data["search_results"] = results
+            msg = await update.message.reply_text("🔍 Searching...")
+            await show_search_page(msg, context, results, page=1, edit=False)
+            return
+        else:
+            await update.message.reply_text(TXT_NOT_FOUND)
+            return
 
 
 # =========================================
@@ -1529,7 +1549,7 @@ async def titles(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 # =========================================
-# SEARCH SYSTEM (TITLE ONLY) - ESKI, ENDI ISHLATILMAYDI LEKIN QOLDIRILDI
+# SEARCH SYSTEM (TITLE ONLY)
 # =========================================
 
 async def search(update:Update, context:ContextTypes.DEFAULT_TYPE):
