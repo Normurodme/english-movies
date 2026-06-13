@@ -954,7 +954,46 @@ async def info(update:Update, context:ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(text, parse_mode="HTML")
 
 # =========================================
-# MESSAGE HANDLER (FIXED - MULTIPLE SEARCHES)
+# SEARCH BY NAME OR CODE - BIRLASHGAN FUNKSIYA
+# =========================================
+
+async def perform_search(query, catalog, db_movies):
+    """
+    Qidiruvni amalga oshiradi:
+    - Agar query raqam bo'lsa: 1) kod bo'yicha to'g'ri kelganlar, 2) nomida raqam qatnashganlar
+    - Agar query matn bo'lsa: nomida shu matn qatnashganlar
+    """
+    results = []
+    query_lower = query.lower()
+    
+    # Raqam yoki raqam+nuqta formatini tekshirish
+    is_numeric = re.match(r'^\d+(\.\d+)?$', query)
+    
+    if is_numeric:
+        # 1. KOD bo'yicha to'g'ri kelgan kinolar (to'liq moslik)
+        if query in db_movies:
+            title = catalog.get(query, {}).get("title", "Unknown")
+            if (query, title) not in results:
+                results.append((query, title))
+        
+        # 2. NOMIDA raqam qatnashgan kinolar
+        for code, data in catalog.items():
+            title = data.get("title", "")
+            # Raqam nomda qatnashganmi? (masalan: "300 Spartaliklar" yoki "Avatar: The Way of Water" da raqam yo'q)
+            if query in title:
+                if (code, title) not in results:
+                    results.append((code, title))
+    else:
+        # Matn bo'yicha qidiruv (nomda qatnashgan)
+        for code, data in catalog.items():
+            title = data.get("title", "")
+            if query_lower in title.lower():
+                results.append((code, title))
+    
+    return results
+
+# =========================================
+# MESSAGE HANDLER (YANGI SEARCH TIZIMI)
 # =========================================
 
 async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
@@ -1127,40 +1166,13 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
         await info(update, context)
         return
     
-    # Search 🔍
+    # Search 🔍 - YANGI: To'g'ridan-to'g'ri qidiruvga o'tadi
     if text and text.startswith("Search"):
         context.user_data.pop("msg_mode", None)
-        # Clear previous search results when starting new search
         context.user_data.pop("search_results", None)
-        # Set search mode but keep it for multiple searches
-        context.user_data["search_mode"] = "waiting_for_method"
-        kb = ReplyKeyboardMarkup(
-            [
-                ["By Name", "By Code"],
-                ["Back"]
-            ],
-            resize_keyboard=True
-        )
-        await update.message.reply_text("Choose search method", reply_markup=kb)
-        return
-
-    if text == "By Name":
-        context.user_data.pop("msg_mode", None)
-        context.user_data["search_mode"] = "name"
-        await update.message.reply_text("Send movie name")
-        return
-
-    if text == "By Code":
-        context.user_data.pop("msg_mode", None)
-        context.user_data["search_mode"] = "code"
-        await update.message.reply_text("Send movie code")
-        return
-
-    if text == "Back":
-        context.user_data.pop("search_mode", None)
-        context.user_data.pop("search_results", None)
-        context.user_data.pop("msg_mode", None)
-        await update.message.reply_text(TXT_START, parse_mode="HTML", reply_markup=USER_MENU)
+        # Qidiruv rejimiga o'tish
+        context.user_data["search_mode"] = "searching"
+        await update.message.reply_text("Send movie name or code")
         return
 
     # Top 🔝
@@ -1179,12 +1191,11 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
         await vip(update, context)
         return
 
-    # Referral (YANGILANGAN MATN - <code> O'CHIRILDI)
+    # Referral
     if text and text.startswith("Referral"):
         context.user_data.pop("search_mode", None)
         context.user_data.pop("search_results", None)
         context.user_data.pop("msg_mode", None)
-        # Yangilangan referral matni
         uid = update.effective_user.id
         link = f"https://t.me/englishmovietimebot?start={uid}"
         count = REFERRALS.get(str(uid), 0)
@@ -1214,89 +1225,36 @@ async def msg(update:Update,context:ContextTypes.DEFAULT_TYPE):
         return
 
     # =============================================
-    # SEARCH MODE (name or code) - KEEP MODE AFTER USE
+    # SEARCH MODE - YANGI BIRLASHGAN QIDIRUV
     # =============================================
-    if context.user_data.get("search_mode") == "name":
-        # Do NOT pop! Stay in search mode for next query.
-        catalog = DB.get("catalog", {})
+    if context.user_data.get("search_mode") == "searching":
+        # Qidiruv rejimidan chiqish (bir marta ishlatgandan keyin)
+        context.user_data.pop("search_mode", None)
         
-        keyword = text.lower()
-        results = []
-        for code_val, data in catalog.items():
-            title = data.get("title", "")
-            if keyword in title.lower():
-                results.append((code_val, title))
+        catalog = DB.get("catalog", {})
+        db_movies = DB.get("movies", {})
+        
+        # Yangi birlashgan qidiruv funksiyasi
+        results = await perform_search(text, catalog, db_movies)
         
         if not results:
             await update.message.reply_text("❌ No results found")
             return
         
-        # Store results in user_data for pagination
+        # Natijalarni saqlash
         context.user_data["search_results"] = results
         
-        # Send first page
+        # Birinchi sahifani ko'rsatish
         msg = await update.message.reply_text("🔍 Searching...")
         await show_search_page(msg, context, results, page=1, edit=False)
         return
+
+    # =============================================
+    # OLDINGI SEARCH MODE (FAQAT CODE UCHUN - USER TO'G'RIDAN-TO'G'RI KOD YOZSA)
+    # Agar user SEARCH tugmasini bosmay, to'g'ridan-to'g'ri kod yozsa
+    # =============================================
     
-    if context.user_data.get("search_mode") == "code":
-        # Code search - single result, clear mode after
-        context.user_data.pop("search_mode", None)
-        catalog = DB.get("catalog", {})
-        item = catalog.get(text)
-        if not item:
-            await update.message.reply_text("❌ Movie not found")
-            return
-        title = item.get("title","")
-        msg_id = DB.get("movies", {}).get(text)
-        if not msg_id:
-            await update.message.reply_text("❌ Movie not found")
-            return
-        vip_list = set(str(x) for x in DB.get("vip_only", []))
-        if text in vip_list and not is_vip(uid):
-            await update.message.reply_text(TXT_VIP_ONLY)
-            return
-        now = time.time()
-        STATS.setdefault("codes", []).append((text, now))
-        STATS.setdefault("requests", []).append(now)
-        STATS.setdefault("users", []).append((uid, now))
-        mark_stats_dirty()
-        await SEND_QUEUE.put((context, uid, msg_id, is_vip(uid), title))
-        return
-
-    # =============================================
-    # MESSAGE FLOW - FAQAT XABAR UCHUN (awaiting_message)
-    # =============================================
-    if context.user_data.get("msg_mode") == "awaiting_message":
-        try:
-            txt = update.message.text or ""
-            await context.bot.send_message(
-                MESSAGE_CHANNEL,
-                f"📩 Message from {uid}:\n{txt}"
-            )
-            await update.message.reply_text("✅ Sent to admin")
-        except:
-            await update.message.reply_text("❌ Failed")
-        
-        context.user_data.pop("msg_mode", None)
-        return
-
-    # ------------------------
-    # ADMIN REPLY TO USER (faqat admin uchun)
-    # ------------------------
-    if uid == ADMIN_ID and context.user_data.get("msg_mode") == "admin":
-        target = context.user_data.get("msg_target")
-        try:
-            await update.message.copy(target)
-            await update.message.reply_text("✅ Sent")
-        except:
-            await update.message.reply_text("❌ Failed to send")
-        context.user_data.clear()
-        return
-
-    # ------------------------
     # ODDATDAGI KINO KODI (nuqtali kodlarni ham qabul qiladi)
-    # ------------------------
     now=time.time()
     vip_user=is_vip(uid)
     delay = 5 if vip_user else 5
@@ -1571,12 +1529,12 @@ async def titles(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 # =========================================
-# SEARCH SYSTEM (TITLE ONLY)
+# SEARCH SYSTEM (TITLE ONLY) - ESKI, ENDI ISHLATILMAYDI LEKIN QOLDIRILDI
 # =========================================
 
 async def search(update:Update, context:ContextTypes.DEFAULT_TYPE):
-    context.user_data["search_mode"] = "name"
-    await update.message.reply_text("Send a movie name")
+    context.user_data["search_mode"] = "searching"
+    await update.message.reply_text("Send movie name or code")
 
 
 
