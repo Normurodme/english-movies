@@ -37,7 +37,7 @@ async def queue_worker():
                 caption=f"Name : {title}\n\n{WARNING}",
                 parse_mode="HTML"
             )
-            delete_sec = 21600 if vip_flag else 900
+            delete_sec = 21600 if vip_flag else 1800
             asyncio.create_task(auto_delete(context, uid, sent.message_id, delete_sec))
         except:
             pass
